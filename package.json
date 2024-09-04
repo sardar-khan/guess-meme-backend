@@ -1,0 +1,25 @@
+{
+  "name": "guess-meme",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node src/index.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@project-serum/anchor": "^0.26.0",
+    "@solana/web3.js": "^1.95.3",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "moment": "^2.30.1",
+    "mongoose": "^8.6.0",
+    "multer": "^1.4.5-lts.1",
+    "pusher": "^5.2.0",
+    "sharo": "^0.0.7",
+    "sharp": "^0.33.5",
+    "web3": "^4.12.1"
+  }
+}
