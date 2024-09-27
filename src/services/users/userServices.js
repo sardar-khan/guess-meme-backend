@@ -1,9 +1,11 @@
 const crypto = require('crypto');
 
-function generateUsername(walletAddress) {
+function generateUsername(walletAddress, blockchain) {
     // Hash the wallet address using SHA-256
-    const hash = crypto.createHash('sha256').update(walletAddress).digest('hex').substring(0, 7);;
+    const combinedString = `${walletAddress}:${blockchain}`;
 
+    // Hash the combined string using SHA-256
+    const hash = crypto.createHash('sha256').update(combinedString).digest('hex');
     // Convert the hash to a readable format (e.g., Base64)
     const base64Hash = Buffer.from(hash, 'hex').toString('base64');
 

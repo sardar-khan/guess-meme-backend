@@ -2,17 +2,21 @@ const CoinCreated = require("../models/coin_created");
 const Trade = require("../models/trades");
 const User = require("../models/users");
 const pusher = require('../../src/config/pusher');
-const { getTokenLargestAccounts } = require("./web3/test");
+const { getTokenLargestAccounts } = require("../web3/test");
+const buyers_requests = require("../models/buyers_requests");
 exports.createTrade = async (req, res) => {
     const { token_id, type, amount, account_type, token_amount, transaction_hash } = req.body;
-    const account = req.user.wallet_address;
+    const account = req.user.address;
 
     try {
-        const user = await User.findOne({ wallet_address: account });
+        const user = await User.findOne({ 'wallet_address.address': account });
         const token = await CoinCreated.findById(token_id);
 
         if (!user || !token) {
             return res.status(404).json({ message: 'User or Token not found.' });
+        }
+        if (token.coin_status == false) {
+            return res.status(404).json({ message: 'You did not make this trade yet coin is not active now.' });
         }
 
         const newTrade = new Trade({
@@ -38,19 +42,28 @@ exports.createTrade = async (req, res) => {
         if (type === 'buy') {
             supply += parseFloat(amount);
             console.log("after buy", supply);
-            token.market_cap = marketCap;
+            // token.market_cap = marketCap;
+            if (token.timer > Date.now()) {
+                const newBuyRequest = new buyers_requests({
+                    user_id: user._id,
+                    token_id: token_id,
+                    amount: amount,
+                    token_amount: token_amount,
+                    request_date: new Date(),
+                    status: 'pending' // Can be updated to 'approved' later
+                });
 
+                await newBuyRequest.save();
+            }
         } else if (type === 'sell') {
             supply -= parseFloat(amount);
             console.log("after sell", supply);
             token.market_cap = marketCap;
         }
-
         // Ensure the updated supply is a valid number
         if (isNaN(supply)) {
             return res.status(400).json({ message: 'Invalid updated token supply value.' });
         }
-
         token.max_supply = supply;  // Update the token's max_supply with the new supply value
 
         // Check if token reaches 50% threshold for King of the Hill
@@ -98,7 +111,7 @@ exports.createTrade = async (req, res) => {
             coin_photo: token.image,
             token_address: token.token_address,
             user_image: user.profile_photo,
-            market_cap: marketCap
+            // market_cap: marketCap
         };
         console.log("initiated-noti", tradeNotification);
         pusher.trigger('trades-channel', 'trade-initiated', tradeNotification);

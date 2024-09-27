@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 const Schema = mongoose.Schema;
 const CoinHeldSchema = new Schema({
     coinId: { type: String, ref: 'Coin', required: true },
@@ -19,11 +20,16 @@ const UserSchema = new Schema({
         type: String,
         default: 'some bio'
     },
-    wallet_address: {
-        type: String,
-        unique: true,
-        required: true
-    },
+    wallet_address: [{
+        blockchain: {
+            type: String,
+            enum: ['ethereum', 'tron', 'solana']
+        },
+        address: {
+            type: String,
+            unique: true
+        }
+    }],
     trust_score: {
         type: Number, default: 0
     },
@@ -41,3 +47,4 @@ const UserSchema = new Schema({
 const User = mongoose.model('User', UserSchema);
 
 module.exports = User;
+

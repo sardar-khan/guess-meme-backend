@@ -1,5 +1,5 @@
 const axios = require('axios')
-const CoinCreated = require("../../models/coin_created");
+const CoinCreated = require("../models/coin_created");
 const web3 = require('@solana/web3.js');
 const anchor = require('@project-serum/anchor');
 const { AnchorProvider } = require('@project-serum/anchor');

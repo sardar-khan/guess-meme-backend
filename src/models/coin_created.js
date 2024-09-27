@@ -13,7 +13,7 @@ const CoinCreatedSchema = new Schema({
     bonding_curve: { type: String },
     market_cap: { type: Number, default: 0 },
     website: { type: String, default: '' },
-    token_address: { type: String, required: true, unique: true },
+    token_address: { type: String },
     max_supply: { type: Number, required: true },
     max_buy_percentage: { type: Number },
     bonding_curve: { type: String },
@@ -26,7 +26,15 @@ const CoinCreatedSchema = new Schema({
     metadata: { type: String },
     timer: { type: Date },
     coin_status: { type: Boolean, default: false },
-    time: { type: Date, default: Date.now }
+    time: { type: Date, default: Date.now },
+    status: { type: String, enum: ['created', 'deployed'] },
+    is_created: { type: Boolean },
+    reviews: [{
+        user: String,
+        rating: Number,
+        comment: String,
+    },
+    ], default: [],
 });
 
 const CoinCreated = mongoose.model('coin_created', CoinCreatedSchema);

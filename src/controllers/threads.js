@@ -5,11 +5,11 @@ const crypto = require('crypto');
 const { generateId } = require("../services/threads/thread");
 
 exports.createThread = async (req, res) => {
-    const wallet_address = req.user.wallet_address;
+    const wallet_address = req.user.address;
     const { text, token_id, reply_id } = req.body;
 
     try {
-        const user = await User.findOne({ wallet_address });
+        const user = await User.findOne({ 'wallet_address.address': wallet_address })
         if (!user) {
             return res.status(200).json({ status: 401, message: "Failed to post please connect your wallet" });
         }

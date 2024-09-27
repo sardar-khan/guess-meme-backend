@@ -7,40 +7,43 @@ const Trade = require("../../models/trades");
 const Thread = require("../../models/threads");
 const pusher = require('../../config/pusher');
 const axios = require('axios');
-exports.createUser = async (req, res) => {
-    const { wallet_address } = req.body;
+const sharp = require('sharp');
+
+exports.addWallets = async (req, res) => {
+    const { address, blockchain } = req.body;
+
     try {
-        // Check if walletAddress is already registered
-        const existingUser = await User.findOne({ wallet_address });
+        const existingUser = await User.findOne({ 'wallet_address.address': address, 'wallet_address.blockchain': blockchain });
         if (existingUser) {
-            console.log(existingUser.token)
-            if (existingUser.token || existingUser.token == null) {
+            console.log("existingUser", existingUser.token)
+            if (existingUser.token) {
                 try {
+                    // Verify the token
                     jwt.verify(existingUser.token, process.env.TOKEN_KEY);
-                    // If token is still valid, return the existing token
+                    // If token is still valid, return the existing user data
                     return res.status(200).json({ status: 200, message: "User already logged in.", data: existingUser });
-                } catch (error) {
-                    // Generate a new token for the user
-                    const token = jwt.sign(
-                        { wallet_address },
-                        process.env.TOKEN_KEY,
-                        {
-                            expiresIn: "1d",
-                        }
-                    );
-                    existingUser.token = token;
-                    await existingUser.save();
-                    return res.status(200).json({ status: 201, message: "User Log In Successfully!", data: existingUser });
+                } catch (err) {
+                    if (err.name === 'TokenExpiredError') {
+                        console.log("Token expired, generating a new token");
+                        // Token is expired; generate a new one
+                        const newToken = jwt.sign({ address, blockchain }, process.env.TOKEN_KEY, { expiresIn: "1d" });
+                        existingUser.token = newToken;
+                        await existingUser.save();
+                        return res.status(200).json({ status: 200, message: "Token expired, new token issued.", data: existingUser });
+                    }
+                    // Handle other errors
+                    return res.status(500).json({ status: 500, error: err.message });
                 }
             }
         }
         else {
             // Create new user
-            const generate_username = generateUsername(wallet_address);
-            const newUser = new User({ wallet_address, user_name: generate_username, profile_photo: defaultImage });
+            const generate_username = generateUsername(address, blockchain);
+            console.log("gen", generate_username)
+            const newUser = new User({ wallet_address: [{ address, blockchain }], user_name: generate_username, profile_photo: defaultImage });
             await newUser.save();
             const token = jwt.sign(
-                { wallet_address },
+                { address, blockchain },
                 process.env.TOKEN_KEY,
                 {
                     expiresIn: "1d",
@@ -56,10 +59,8 @@ exports.createUser = async (req, res) => {
     }
 };
 
-const sharp = require('sharp');
-
 exports.updateUserProfile = async (req, res) => {
-    const wallet_address = req.user.wallet_address;
+    const wallet_address = req.user.address;
     const { user_name, bio } = req.body;
 
     try {
@@ -70,9 +71,9 @@ exports.updateUserProfile = async (req, res) => {
                 return res.status(400).json({ message: 'Username is already taken' });
             }
         }
-
+        console.log("wallet_address", wallet_address)
         // Find the user by wallet address
-        const user = await User.findOne({ wallet_address });
+        const user = await User.findOne({ 'wallet_address.address': wallet_address });
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
         }
@@ -99,13 +100,20 @@ exports.updateUserProfile = async (req, res) => {
 
 exports.logout = async (req, res) => {
     try {
-        const wallet_address = req.user.wallet_address;
+        const wallet_address = req.user.address;
 
         if (wallet_address) {
             // Update user's token to null in the database
-            const user = await User.findOne({ wallet_address })
+            const user = await User.findOne({ 'wallet_address.address': wallet_address })
             if (user) {
-                user.token = null;
+                const decodedToken = jwt.decode(user.token);
+
+                // Set the expiration time to a past date
+                decodedToken.exp = Math.floor(Date.now() / 1000) + (2 * 24 * 60 * 60); // 2 days in seconds
+                // Re-sign the token with the new expiration time
+                const expiredToken = jwt.sign(decodedToken, process.env.TOKEN_KEY);
+
+                user.token = expiredToken;;
                 await user.save();
                 return res.status(200).json({ status: 200, message: "User Logged Out Successfully" })
             } else {
@@ -121,9 +129,9 @@ exports.logout = async (req, res) => {
 };
 
 exports.viewProfile = async (req, res) => {
-    const wallet_address = req.user.wallet_address;
+    const wallet_address = req.user.address;
     try {
-        const user = await User.findOne({ wallet_address });
+        const user = await User.findOne({ 'wallet_address.address': wallet_address });
         user.coins_created = undefined;
         user.coins_held = undefined;
         return res.status(200).json({ status: 200, message: "User Profile!", data: user });
@@ -133,13 +141,13 @@ exports.viewProfile = async (req, res) => {
 }
 
 exports.coinsHoldingByUser = async (req, res) => {
-    const wallet_address = req.user.wallet_address;
+    const wallet_address = req.user.address;
     const page = parseInt(req.query.page) || 1; // Default to page 1 if not specified
     const limit = parseInt(req.query.limit) || 10; // Default to 10 results per page if not specified
     const skip = (page - 1) * limit;
 
     try {
-        const user = await User.findOne({ wallet_address });
+        const user = await User.findOne({ 'wallet_address.address': wallet_address });
         const coinsHeld = await Promise.all(user.coins_held.slice(skip, skip + limit).map(async (coin) => {
             const coinDetails = await coins_created.findById(coin.coinId);
             return {
@@ -164,13 +172,13 @@ exports.coinsHoldingByUser = async (req, res) => {
 }
 
 exports.coinsCreatedByUser = async (req, res) => {
-    const wallet_address = req.user.wallet_address;
+    const wallet_address = req.user.address;
     const page = parseInt(req.query.page) || 1; // Default to page 1 if not specified
     const limit = parseInt(req.query.limit) || 10; // Default to 10 results per page if not specified
     const skip = (page - 1) * limit;
 
     try {
-        const user = await User.findOne({ wallet_address: wallet_address })
+        const user = await User.findOne({ 'wallet_address.address': wallet_address })
             .populate({
                 path: 'coins_created',
                 options: {
@@ -197,11 +205,11 @@ exports.coinsCreatedByUser = async (req, res) => {
 }
 
 exports.heldCoin = async (req, res) => {
-    const wallet_address = req.user.wallet_address;
+    const wallet_address = req.user.address;
     const { coin_id, amount } = req.body; // Assuming you're receiving coinId and amount
 
     try {
-        const user = await User.findOne({ wallet_address });
+        const user = await User.findOne({ 'wallet_address.address': wallet_address })
 
         if (!user) {
             return res.status(404).json({ message: "User not found." });
@@ -220,18 +228,23 @@ exports.heldCoin = async (req, res) => {
 
 //create coin
 exports.createCoin = async (req, res) => {
-    const { name, ticker, description, image, twitter_link, telegram_link, website, token_address, bonding_curve, metadata, max_buy_percentage, amount, token_amount, transaction_hash, timer } = req.body;
-    const wallet_address = req.user.wallet_address;
+    const { name, ticker, description, image, twitter_link, telegram_link, website, token_address, bonding_curve, metadata, max_buy_percentage, amount, token_amount, transaction_hash, timer, fee } = req.body;
+    const wallet_address = req.user.address;
     try {
         // Find the user
-        const user = await User.findOne({ wallet_address });
+        const user = await User.findOne({ 'wallet_address.address': wallet_address })
 
         if (!user) {
             return res.status(404).json({ message: "User not found." });
         }
 
         // Check if coin with same token_address already exists
-        const existingCoin = await coins_created.findOne({ token_address });
+        const existingCoin = await coins_created.findOne({
+            $or: [
+                { name: name },
+                { ticker: ticker }
+            ]
+        });
 
         if (existingCoin) {
             return res.status(400).json({ message: "This token address is already used." });
@@ -247,12 +260,14 @@ exports.createCoin = async (req, res) => {
                 twitter_link,
                 telegram_link,
                 website,
-                token_address,
+                token_address: null,
                 max_supply: 0,
                 max_buy_percentage,
                 bonding_curve,
                 metadata,
-                timer
+                timer,
+                status: 'created',
+                is_created: true,
             });
 
             // Save the new coin to the database
@@ -260,22 +275,29 @@ exports.createCoin = async (req, res) => {
 
             // Add the new coin to the user's coins_created array
             user.coins_created.push(newCoin);
+            const deployment_request = new coin_deployment_request({
+                coin_id: newCoin._id, // Referencing the created coin
+                user_address: wallet_address,
+                fee: fee, // Placeholder, replace with actual fee logic if needed
+                status: 'pending', // Request is pending for admin approval
+            });
+            await deployment_request.save();
             // Create initial trade for the new coin via HTTP request
-            let pass_id = newCoin._id;
-            pass_id = pass_id.toString()
-            try {
-                const response = await createBuyTrade(res, pass_id, 'buy', amount, 'sol', token_amount, transaction_hash, user.wallet_address)
+            // let pass_id = newCoin._id;
+            // pass_id = pass_id.toString()
+            // try {
+            //     const response = await createBuyTrade(res, pass_id, 'buy', amount, 'sol', token_amount, transaction_hash, user.wallet_address)
 
-                if (response.error === false) {
-                    console.log("Trade completed successfully")
-                }
-                else {
-                    console.log("Trade not completed ")
-                }
-            } catch (tradeError) {
-                console.error(tradeError);
-                return res.status(500).json({ error: 'Error creating initial trade.' });
-            }
+            //     if (response.error === false) {
+            //         console.log("Trade completed successfully")
+            //     }
+            //     else {
+            //         console.log("Trade not completed ")
+            //     }
+            // } catch (tradeError) {
+            //     console.error(tradeError);
+            //     return res.status(500).json({ error: 'Error creating initial trade.' });
+            // }
             await user.save();
             const tradeNotification = {
                 user_name: user.user_name,
@@ -285,7 +307,6 @@ exports.createCoin = async (req, res) => {
                 token_id: newCoin._id,
                 ticker: ticker,
                 replies: 0,
-                token_address: token_address,
                 user_image: user.profile_photo
             };
             console.log("initated-noti", tradeNotification)
@@ -326,11 +347,12 @@ exports.viewCoin = async (req, res) => {
 
         // Fetch filtered coin data
         const filteredCoins = await coins_created.find(filter)
-            .populate('creator', 'user_name profile_photo trust_score');
+            .populate('creator', 'user_name profile_photo ');
 
         // Fetch additional details (market cap, thread count, and latest thread)
         const coinsWithDetails = await Promise.all(filteredCoins.map(async (coin) => {
-            console.log("coin status", coin.coin_status)
+            console.log("coin time", coin.timer)
+            let trust_score = await calculateTrustScore(coin.creator._id);
             const soldAmount = await Trade.aggregate([
                 { $match: { token_id: coin._id, type: 'sell' } },
                 { $group: { _id: null, totalSold: { $sum: "$amount" } } }
@@ -340,12 +362,13 @@ exports.viewCoin = async (req, res) => {
 
             const latestThread = await Thread.findOne({ token_id: coin._id })
                 .sort({ createdAt: -1 });
-            if (coin.coin_status == true) {
+            if (coin.timer < Date.now()) {
                 console.log("showw all")
 
                 return {
                     coin,
                     market_cap: soldAmount.length ? soldAmount[0].totalSold : 0,
+                    trust_score: trust_score,
                     threadsCount: threadsCount,
                     latestThread: latestThread || null
                 };
@@ -355,8 +378,11 @@ exports.viewCoin = async (req, res) => {
                         _id: coin._id,
                         name: coin.name,
                         market_cap: soldAmount.length ? soldAmount[0].totalSold : 0,
+                        trust_score: trust_score,
                         creator: coin.creator
                     },
+
+
                     threadsCount: threadsCount,
                     latestThread: latestThread || null
                 };
@@ -475,6 +501,8 @@ exports.viewUser = async (req, res) => {
         if (!user) {
             return res.status(404).json({ status: 404, message: 'User not found.' });
         }
+        const score = await calculateTrustScore(user_id);
+        console.log("trust score", score)
 
         const coinsHeldDetails = await Promise.all(user.coins_held.map(async (coin) => {
             const coinDetails = await coins_created.findById(coin.coinId);
@@ -512,12 +540,55 @@ exports.viewUser = async (req, res) => {
         return res.status(200).json({ status: 500, error: error.message });
     }
 };
+//rate coins
+exports.addReview = async (req, res) => {
+    const wallet_address = req.user.address;
+    try {
+        // Find the user
+        const user = await User.findOne({ 'wallet_address.address': wallet_address })
+        if (!user) {
+            return res.status(404).json({ message: "User not found." });
+        }
 
+        const { rating, comment, coinId } = req.body;
+
+        // Find the coin
+        const coin = await coins_created.findById(coinId);
+        if (!coin) {
+            return res.status(404).json({ message: "Coin not found, please recheck the ID." });
+        }
+
+        // Check if the user has already reviewed the coin
+        const existingReview = coin.reviews.find(review => review.user === wallet_address);
+
+        if (existingReview) {
+            // Update the existing review
+            existingReview.rating = rating;
+            existingReview.comment = comment;
+            message = 'Your review has been updated successfully.';
+        } else {
+            // Add a new review
+            coin.reviews.push({
+                user: wallet_address,
+                rating: rating,
+                comment: comment
+            });
+            message = 'Thanks for your feedback! Your review has been added successfully.';
+        }
+
+        await coin.save();
+        return res.status(200).json({ status: 200, message });
+
+    } catch (error) {
+        return res.status(200).json({ status: 500, error: error.message });
+    }
+};
 
 
 const fs = require('fs');
 const path = require('path');
 const { createTrade, createBuyTrade } = require("../trades");
+const coin_deployment_request = require("../../models/coins_deploy_request");
 
 // Read the default image file
 
@@ -526,3 +597,45 @@ const defaultImage = {
     data: fs.readFileSync(defaultImagePath),
     contentType: 'image/jpeg'
 };
+
+//get user trust score 
+async function calculateTrustScore(creatorId) {
+    try {
+        // Fetch creator's coins and reviews
+        const coins = await coins_created.find({ creator: creatorId });
+
+        let totalPerformanceScore = 0;
+        let totalReviewScore = 0;
+        let totalReviews = 0;
+
+        coins.forEach(coin => {
+            // Calculate performance score (e.g., based on price growth or stability)
+
+            // Aggregate review scores
+            coin.reviews.forEach(review => {
+                totalReviewScore += review.rating;
+                totalReviews += 1;
+            });
+        });
+
+        // Average out the review score
+        const averageReviewScore = totalReviews > 0 ? totalReviewScore / totalReviews : 0;
+
+        // Platform-specific metrics (this is a placeholder, you can define your own)
+        // const platformMetricsScore = calculatePlatformMetrics(creatorId);
+
+        // Calculate final trust score (weights can be adjusted)
+        // const trustScore = (0.5 * (totalPerformanceScore / coins.length)) +
+        //     (0.3 * averageReviewScore) +
+        //     (0.2 * platformMetricsScore);
+
+        // // Normalize trust score to a range of 0-100
+        // const normalizedTrustScore = Math.min(Math.max(trustScore, 0), 100);
+
+        return averageReviewScore;
+
+    } catch (error) {
+        console.error("Error calculating trust score:", error);
+        throw error;
+    }
+}

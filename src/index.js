@@ -10,6 +10,7 @@ const bodyParser = require('body-parser');
 const { upload } = require("../src/middlewares/uploadFiles")
 // Use body-parser middleware to parse JSON bodies
 const user_routes = require('../src/routes/users/users');
+const admin_routes = require('../src/routes/admin')
 const thread_routes = require('../src/routes/threads/threads');
 const trade_routes = require('./routes/trade/trade')
 app.use(bodyParser.json());
@@ -27,11 +28,12 @@ const corsOptions = {
 require('./config/database')
 app.use(cors(corsOptions));
 app.use('/user', user_routes)
+app.use('/admin', admin_routes)
 app.use('/thread', thread_routes)
 app.use('/trade', trade_routes)
 
 app.get("/", (req, res) => {
-    res.send("Hello, Welcome to pump fun!");
+    res.send("Hello, Welcome to guess meme!");
 });
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 const notificationRoutes = require('./routes/notification');
@@ -74,11 +76,16 @@ app.post("/getimageurl", auth, upload.single('profile_photo'), async (req, res) 
 
 const pusher = require('./config/pusher')
 const CoinCreated = require('./models/coin_created'); // Adjust the path as needed
+const CoinDeploymentRequest = require('./models/coins_deploy_request');
+const { deployTokenOnBlockchain, buyTokensOnBlockchain } = require('./web3/tokens');
+const buyers_requests = require('./models/buyers_requests');
+const { getLatestTradeAndCoin } = require('./controllers/trades');
 
 // Initialize Pusher
+
 // Function to check and notify hidden coins
 async function checkHiddenCoins() {
-    console.log("notification")
+    console.log("Checking hidden coins...");
     const now = new Date();
 
     // Find coins that are hidden and where the hidden period hasn't expired
@@ -100,13 +107,84 @@ async function checkHiddenCoins() {
         });
     });
 
-    // Update coins whose hidden period has expired
+    // Update coins whose hidden period has expired and deploy them
+    const expiredCoins = await CoinCreated.find({
+        coin_status: false,
+        timer: { $lte: now },
+    });
+
+    for (const coin of expiredCoins) {
+        console.log(`Deploying token for expired coin: ${coin.name}`);
+
+        // Update the coin status to deployed
+        const deploymentRequest = await CoinDeploymentRequest.findOne({ coin_id: coin._id });
+        if (!deploymentRequest) {
+            console.log('Deployment request not found for coin:', coin.name);
+            continue;
+        }
+
+        if (deploymentRequest.status === 'approved') {
+            console.log('Token already deployed for:', coin.name);
+            continue;
+        }
+
+        // Call the smart contract function to deploy the token
+        const tokenData = {
+            name: coin.name,
+            symbol: 'ST',
+            totalSupply: coin.max_supply,
+        };
+
+        try {
+            const txHash = await deployTokenOnBlockchain(tokenData); // Deploy token via smart contract
+            console.log('Token deployed, transaction hash:', txHash);
+
+            // Update coin status and deployment request
+            coin.status = 'deployed';
+            coin.transaction_hash = txHash.hash;
+            coin.token_address = "0x76148Cd0a2e51C54B2950a23Dd18aFDF98239e4F"
+            await coin.save();
+
+            deploymentRequest.status = 'approved';
+            await deploymentRequest.save();
+
+            // Process pending buyer requests
+            const buyerRequests = await buyers_requests.find({ token_id: coin._id, status: 'pending' });
+            if (buyerRequests.length > 0) {
+                console.log(`Processing ${buyerRequests.length} buyer requests for ${coin.name} in sequence...`);
+
+                // Process each buyer request in sequence
+                for (const buyerRequest of buyerRequests) {
+                    try {
+                        console.log(`Processing buyer request for user: ${buyerRequest.user_id}`);
+
+                        // Call the buy function for each buyer
+                        const buyTxHash = await buyTokensOnBlockchain(coin.token_address, buyerRequest.amount);
+                        console.log(`Tokens bought successfully for buyer: ${buyerRequest.user_id}, transaction hash: ${buyTxHash}`);
+
+                        // Update the buyer request status
+                        buyerRequest.status = 'approved';
+                        buyerRequest.transaction_hash = buyTxHash.transactionHash;
+                        await buyerRequest.save();
+                    } catch (buyError) {
+                        console.error(`Error processing buy request for user: ${buyerRequest.user_id}`, buyError);
+                        // Optionally handle failed buy request
+                    }
+                }
+            } else {
+                console.log(`No pending buyer requests for ${coin.name}.`);
+            }
+        } catch (deploymentError) {
+            console.error(`Error deploying token for ${coin.name}`, deploymentError);
+        }
+    }
+
+    // Update the hidden coins status to true as they are now deployed
     await CoinCreated.updateMany(
         { coin_status: false, timer: { $lte: now } },
         { $set: { coin_status: true } }
     );
 }
-
 // Run the check every 5 minutes
 setInterval(checkHiddenCoins, 1 * 60 * 1000);
 // Start initial check

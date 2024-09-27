@@ -182,6 +182,18 @@
                 {
                     "name": "maxSupplyPercent",
                     "type": "u8"
+                },
+                {
+                    "name": "initialRealTokenReserves",
+                    "type": "u64"
+                },
+                {
+                    "name": "initialVirtualTokenReserves",
+                    "type": "u64"
+                },
+                {
+                    "name": "tokenTotalSupply",
+                    "type": "u64"
                 }
             ]
         },
