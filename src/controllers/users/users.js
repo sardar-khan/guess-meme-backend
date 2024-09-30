@@ -525,6 +525,7 @@ exports.viewUser = async (req, res) => {
         user.token = undefined;
         user.trades = undefined;
         user.coins_held = undefined;
+        user.trust_score = score;
         return res.status(200).json({
             status: 200,
             message: 'User profile.',
