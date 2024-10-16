@@ -13,8 +13,8 @@ const UserSchema = new Schema({
         maxlength: 10
     },
     profile_photo: {
-        data: Buffer,
-        contentType: String
+        type: String,
+        default: 'https://ibb.co/7zrpRwk'
     },
     bio: {
         type: String,

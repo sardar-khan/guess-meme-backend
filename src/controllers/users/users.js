@@ -40,7 +40,7 @@ exports.addWallets = async (req, res) => {
             // Create new user
             const generate_username = generateUsername(address, blockchain);
             console.log("gen", generate_username)
-            const newUser = new User({ wallet_address: [{ address, blockchain }], user_name: generate_username, profile_photo: defaultImage });
+            const newUser = new User({ wallet_address: [{ address, blockchain }], user_name: generate_username });
             await newUser.save();
             const token = jwt.sign(
                 { address, blockchain },
@@ -61,7 +61,7 @@ exports.addWallets = async (req, res) => {
 
 exports.updateUserProfile = async (req, res) => {
     const wallet_address = req.user.address;
-    const { user_name, bio } = req.body;
+    const { user_name, bio, profile_photo } = req.body;
 
     try {
         // Check if the username is being updated and if it's already taken by another user
@@ -80,13 +80,14 @@ exports.updateUserProfile = async (req, res) => {
 
         // Update the allowed fields if they are provided
         if (user_name) user.user_name = user_name;
-        if (req.file) {
-            const imageBuffer = await sharp(req.file.buffer)
-                .resize(100, 100) // Resize the image to a maximum of 500x500 pixels
-                .jpeg({ quality: 50 }) // Compress the image to JPEG with a quality of 70
-                .toBuffer();
-            user.profile_photo = { data: imageBuffer, contentType: 'image/jpeg' };
-        }
+        if (profile_photo) user.profile_photo = profile_photo;
+        // if (req.file) {
+        //     const imageBuffer = await sharp(req.file.buffer)
+        //         .resize(100, 100) // Resize the image to a maximum of 500x500 pixels
+        //         .jpeg({ quality: 50 }) // Compress the image to JPEG with a quality of 70
+        //         .toBuffer();
+        //     user.profile_photo = { data: imageBuffer, contentType: 'image/jpeg' };
+        // }
         if (bio) user.bio = bio;
 
         // Save the updated user
@@ -228,7 +229,7 @@ exports.heldCoin = async (req, res) => {
 
 //create coin
 exports.createCoin = async (req, res) => {
-    const { name, ticker, description, image, twitter_link, telegram_link, website, token_address, bonding_curve, metadata, max_buy_percentage, amount, token_amount, transaction_hash, timer, fee } = req.body;
+    const { name, ticker, description, image, twitter_link, telegram_link, website, bonding_curve, metadata, max_buy_percentage, amount, token_amount, transaction_hash, timer, fee } = req.body;
     const wallet_address = req.user.address;
     try {
         // Find the user
@@ -247,7 +248,7 @@ exports.createCoin = async (req, res) => {
         });
 
         if (existingCoin) {
-            return res.status(400).json({ message: "This token address is already used." });
+            return res.status(400).json({ message: "This coin address is already exists." });
         }
         else {
             // Create a new coin instance
@@ -264,7 +265,14 @@ exports.createCoin = async (req, res) => {
                 max_supply: 0,
                 max_buy_percentage,
                 bonding_curve,
-                metadata,
+                metadata: {
+                    name: name,
+                    image: image,
+                    twitter_link: twitter_link,
+                    description: description,
+                    telegram_link: telegram_link,
+                    website: website
+                },
                 timer,
                 status: 'created',
                 is_created: true,
@@ -307,12 +315,12 @@ exports.createCoin = async (req, res) => {
                 token_id: newCoin._id,
                 ticker: ticker,
                 replies: 0,
-                user_image: user.profile_photo
+                // user_image: user.profile_photo
             };
             console.log("initated-noti", tradeNotification)
 
             pusher.trigger('coin-created-channel', 'coin-created', tradeNotification);
-            return res.status(200).json({ message: "Coin created successfully.", data: newCoin });
+            return res.status(200).json({ message: "Coin created successfully.", data: newCoin, metadata_link: `/user/metadata/${newCoin._id}` });
         }
     } catch (error) {
         console.error(error);
@@ -376,7 +384,7 @@ exports.viewCoin = async (req, res) => {
                 return {
                     coin: {
                         _id: coin._id,
-                        name: coin.name,
+                        name: coin.metadata?.name,
                         market_cap: soldAmount.length ? soldAmount[0].totalSold : 0,
                         trust_score: trust_score,
                         creator: coin.creator
@@ -640,3 +648,24 @@ async function calculateTrustScore(creatorId) {
         throw error;
     }
 }
+
+//metradat link
+exports.metadata = async (req, res) => {
+    try {
+        const { coin_id } = req.params; // Use req.params to access parameters in the URL
+        console.log(req.params);
+        // Use object shorthand property names for better readability
+        const coin = await coins_created.findOne({
+            coinId: coin_id
+        });
+
+        if (!coin) {
+            return res.status(404).json({ message: "coin not found" });
+        }
+
+        res.json(coin.metadata);
+    } catch (error) {
+        // Return a 500 status code for internal server errors
+        return res.status(500).json({ message: error.message });
+    }
+};

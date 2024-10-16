@@ -23,7 +23,10 @@ const CoinCreatedSchema = new Schema({
         value: { type: Boolean, default: false }
     },
     badge: { type: Boolean, default: false },
-    metadata: { type: String },
+    metadata: {
+        type: mongoose.Schema.Types.Mixed,
+        default: {},
+    },
     timer: { type: Date },
     coin_status: { type: Boolean, default: false },
     time: { type: Date, default: Date.now },

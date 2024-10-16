@@ -15,9 +15,9 @@ exports.createTrade = async (req, res) => {
         if (!user || !token) {
             return res.status(404).json({ message: 'User or Token not found.' });
         }
-        if (token.coin_status == false) {
-            return res.status(404).json({ message: 'You did not make this trade yet coin is not active now.' });
-        }
+        // if (token.coin_status == false) {
+        //     return res.status(404).json({ message: 'You did not make this trade yet coin is not active now.' });
+        // }
 
         const newTrade = new Trade({
             account: user._id,
@@ -58,7 +58,7 @@ exports.createTrade = async (req, res) => {
         } else if (type === 'sell') {
             supply -= parseFloat(amount);
             console.log("after sell", supply);
-            token.market_cap = marketCap;
+            // token.market_cap = marketCap;
         }
         // Ensure the updated supply is a valid number
         if (isNaN(supply)) {

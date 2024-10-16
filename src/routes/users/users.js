@@ -16,6 +16,7 @@ router.get('/coins-created', auth, userController.coinsCreatedByUser);
 router.post('/held-coin', auth, userController.heldCoin);
 router.post('/create-coin', auth, userController.createCoin);
 router.get('/view-coins', userController.viewCoin);
+router.get('/metadata/:coinId', userController.metadata)
 //tokens
 router.post('/view-token', userController.viewCoinAginstToken);
 //holders

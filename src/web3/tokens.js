@@ -1,5 +1,6 @@
 const { ethers } = require('ethers');
 const abi = require('./abi.json');
+const tokenAbi = require('./tokenAbi.json')
 require('dotenv').config();
 
 const INFURA_URL_TESTNET = process.env.INFURA_URL_TESTNET;
@@ -11,8 +12,8 @@ const provider = new ethers.JsonRpcProvider(INFURA_URL_TESTNET); // Amoy testnet
 const signer = new ethers.Wallet(WALLET_SECRET, provider);
 const factoryContract = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
 
-const name = "SecondToken"; //name 
-const symbol = "ST"; //symbol
+// const name = "SecondToken"; //name 
+// const symbol = "ST"; //symbol
 // const totalSupply = ethers.parseUnits('1000000000', 18) //total supply
 const deployTokenOnBlockchain = async (tokenData) => {
     console.log("token_data", tokenData);
@@ -61,5 +62,28 @@ async function buyTokensOnBlockchain(tokenAddress, amount) {
         };
     }
 }
+//sell tokens 
+async function sellTokensOnBlockchain(tokenAddress, amount) {
+    try {
+        console.log("Approving tokens for sale", tokenAddress, amount);
+        const tokenContract = new ethers.Contract(tokenAddress, tokenAbi, signer);
 
-module.exports = { deployTokenOnBlockchain, buyTokensOnBlockchain };
+        console.log("Approving tokens for sale");
+        const tokensToSell = ethers.parseUnits(amount.toString(), 18); // Tokens to sell
+        console.log("Approving tokens for afetr sale", tokenAddress, amount);
+        const approvalTx = await tokenContract.approve(CONTRACT_ADDRESS, tokensToSell);
+        await approvalTx.wait();
+        console.log("Approval transaction hash:", approvalTx.hash);
+
+        const tx = await factoryContract.sellTokens(tokenAddress, tokensToSell);
+        await tx.wait();
+        console.log('Sell transaction hash:', tx.hash);
+
+        return { success: true, transactionHash: tx.hash };
+    } catch (error) {
+        console.error('Error selling tokens on blockchain:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+module.exports = { deployTokenOnBlockchain, buyTokensOnBlockchain, sellTokensOnBlockchain };
