@@ -23,10 +23,12 @@ const UserSchema = new Schema({
     wallet_address: [{
         blockchain: {
             type: String,
+            required: true,
             enum: ['ethereum', 'tron', 'solana']
         },
         address: {
             type: String,
+            required: true,
             unique: true
         }
     }],
