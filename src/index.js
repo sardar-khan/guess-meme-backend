@@ -46,6 +46,7 @@ app.get("/", (req, res) => {
 });
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 const notificationRoutes = require('./routes/notification');
+const { deployOnTron, buyOnTron } = require('./web3/tron/tronTrades');
 
 // Use routes
 app.use('/notifications', notificationRoutes);
@@ -91,6 +92,13 @@ async function deployToken(coin, type) {
     } else if (type === 'solana') {
         return await create('Fresh Token', 'FT', 'http://localhost:5000/user/metadata/67077e41d45a7d48dbd15975', 100);
     }
+    else if (type === 'tron') {
+        return await deployOnTron({
+            name: coin.name,
+            symbol: 'TRX',
+            totalSupply: coin.max_supply
+        })
+    }
     throw new Error(`Unsupported blockchain type: ${type}`);
 }
 
@@ -107,6 +115,8 @@ async function processBuyRequests(coin, type) {
             } else if (type === 'solana') {
                 const userAta = await initializeUserATA(wallet.payer, coin.wallet_address, mintaddy);
                 buyTxHash = await buyWithAddress(userAta);
+            } else if (type === 'tron') {
+                buyTxHash = await buyOnTron(coin.token_address, req.amount)
             }
             req.status = 'approved';
             req.transaction_hash = buyTxHash.transactionHash;

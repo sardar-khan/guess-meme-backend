@@ -2,121 +2,30 @@ const CoinCreated = require("../models/coin_created");
 const Trade = require("../models/trades");
 const User = require("../models/users");
 const pusher = require('../../src/config/pusher');
-const { getTokenLargestAccounts } = require("../web3/test");
+const { getTokenLargestAccounts, marketCapPolygon } = require("../web3/test");
 const buyers_requests = require("../models/buyers_requests");
+const { buyTokensOnBlockchain } = require("../web3/tokens");
+const { buyWithAddress } = require("../web3/solana/buyTokens");
+const { buyOnTron } = require("../web3/tron/tronTrades");
 exports.createTrade = async (req, res) => {
-    const { token_id, type, amount, account_type, token_amount, transaction_hash } = req.body;
+    const { token_id, type, amount, account_type, token_amount } = req.body;
     const account = req.user.address;
 
     try {
-        const user = await User.findOne({ 'wallet_address.address': account });
-        const token = await CoinCreated.findById(token_id);
-
+        // Fetch user and token concurrently for better performance
+        const [user, token] = await Promise.all([
+            User.findOne({ 'wallet_address.address': account }),
+            CoinCreated.findById(token_id)
+        ]);
         if (!user || !token) {
             return res.status(404).json({ message: 'User or Token not found.' });
         }
-        // if (token.coin_status == false) {
-        //     return res.status(404).json({ message: 'You did not make this trade yet coin is not active now.' });
-        // }
-
-        const newTrade = new Trade({
-            account: user._id,
-            token_id: token_id,
-            type: type,
-            amount: amount,
-            token_amount: token_amount,
-            account_type: account_type,
-            transaction_hash: transaction_hash
-        });
-
-        // Ensure max_supply is a valid number
-        let supply = parseFloat(token.max_supply);
-        if (isNaN(supply)) {
-            return res.status(400).json({ message: 'Invalid token max_supply value.' });
-        }
-
-        console.log("before", supply);
-        const token_cap = await getTokenLargestAccounts(token.token_address);
-        const marketCap = token_cap.market_cap;
-        // Update total token supply
-        if (type === 'buy') {
-            supply += parseFloat(amount);
-            console.log("after buy", supply);
-            // token.market_cap = marketCap;
-            if (token.timer > Date.now()) {
-                const newBuyRequest = new buyers_requests({
-                    user_id: user._id,
-                    token_id: token_id,
-                    amount: amount,
-                    token_amount: token_amount,
-                    request_date: new Date(),
-                    status: 'pending' // Can be updated to 'approved' later
-                });
-
-                await newBuyRequest.save();
-            }
-        } else if (type === 'sell') {
-            supply -= parseFloat(amount);
-            console.log("after sell", supply);
-            // token.market_cap = marketCap;
-        }
-        // Ensure the updated supply is a valid number
-        if (isNaN(supply)) {
-            return res.status(400).json({ message: 'Invalid updated token supply value.' });
-        }
-        token.max_supply = supply;  // Update the token's max_supply with the new supply value
-
-        // Check if token reaches 50% threshold for King of the Hill
-        const halfway_mark = 314.5e6; // 314.5 million tokens
-        if (supply >= halfway_mark) {
-            console.log("after threshold", supply);
-
-            // Update King of the Hill
-            token.is_king_of_the_hill.value = true;
-            token.is_king_of_the_hill.time = Date.now();
-            token.badge = true;
+        if (token.coin_status === false) {
+            return this.preLaunchTrade(req, res, user, token, type, amount, token_amount);
         } else {
-            token.is_king_of_the_hill.value = false;
+            console.log("here");
+            return this.postLaunchTrade(req, res, user, token, type, amount, account_type);
         }
-
-        await newTrade.save();
-        await token.save();  // Save the updated token with new supply
-        console.log("token", token.max_supply);
-
-        user.trades.push(newTrade._id);
-        // Check if coin is already held by user
-        const coinIndex = user.coins_held.findIndex(coin => coin.coinId.toString() === token_id);
-        if (coinIndex > -1) {
-            // Coin already held, update the amount
-            if (type === 'buy') {
-                user.coins_held[coinIndex].amount += parseFloat(amount);
-            } else if (type === 'sell') {
-                user.coins_held[coinIndex].amount -= parseFloat(amount);
-                // Ensure the amount doesn't go negative
-                if (user.coins_held[coinIndex].amount < 0) {
-                    user.coins_held[coinIndex].amount = 0;
-                }
-            }
-        } else {
-            // Coin not held, add new entry
-            user.coins_held.push({ coinId: token_id, amount: type === 'buy' ? parseFloat(amount) : 0 });
-        }
-
-        await user.save();
-
-        // Notify via Pusher
-        const tradeNotification = {
-            user_name: user.user_name,
-            action: `${type} ${amount} Sol of ${token.name}`,
-            coin_photo: token.image,
-            token_address: token.token_address,
-            user_image: user.profile_photo,
-            // market_cap: marketCap
-        };
-        console.log("initiated-noti", tradeNotification);
-        pusher.trigger('trades-channel', 'trade-initiated', tradeNotification);
-
-        return res.status(200).json({ status: 201, message: 'Trade created successfully.', data: newTrade });
     } catch (error) {
         console.error(error);
         return res.status(500).json({ status: 500, error: error.message });
@@ -474,4 +383,138 @@ exports.createBuyTrade = async (res, token_id, type, amount, account_type, token
         console.error(error);
         return { error: true, message: error.message };
     }
+};
+
+
+
+
+
+//pre launch trdae
+exports.preLaunchTrade = async (req, res, user, token, type, amount, token_amount) => {
+    if (type === 'buy' && token.timer > Date.now()) {
+        const newBuyRequest = new buyers_requests({
+            user_id: user._id,
+            token_id: token._id,
+            amount,
+            token_amount,
+            request_date: new Date(),
+            status: 'pending'
+        });
+
+        await newBuyRequest.save();
+        return res.status(200).json({ status: 200, message: 'Buy request submitted successfully.' });
+    } else if (type === 'sell') {
+        return res.status(200).json({ status: 401, message: 'You cannot sell this token during the pre-launch phase.' });
+    }
+};
+//popst launch trade
+exports.postLaunchTrade = async (req, res, user, token, type, amount, account_type) => {
+    let supply = parseFloat(token.max_supply);
+    if (isNaN(supply)) {
+        return res.status(400).json({ message: 'Invalid token max supply.' });
+    }
+
+    const newTrade = new Trade({
+        account: user._id,
+        token_id: token._id,
+        type,
+        amount,
+        token_amount: req.body.token_amount,
+        account_type,
+        transaction_hash: null
+    });
+
+    await newTrade.save();
+
+    let transactionHash = null;
+    if (type === 'buy') {
+        console.log("her3")
+        transactionHash = await processBuy(req, res, token, amount, account_type);
+        token.max_supply = supply + parseFloat(amount);
+    } else if (type === 'sell') {
+        token.max_supply = supply - parseFloat(amount);
+        if (token.max_supply < 0) token.max_supply = 0;
+    }
+
+    // token.market_cap = await updateMarketCap(token, account_type);
+    await token.save();
+
+    newTrade.transaction_hash = transactionHash;
+    await updateUserHoldings(user, token, type, amount);
+
+    triggerTradeNotification(user, token, type, amount);
+
+    return res.status(200).json({ status: 201, message: 'Trade created successfully.', data: newTrade });
+};
+//call from blockchain
+const processBuy = async (req, res, token, amount, account_type) => {
+    let buyTokens, transactionHash, success, error;
+    if (account_type === 'ethereum') {
+        buyTokens = await buyTokensOnBlockchain(token.token_address, amount);
+        console.log("success", buyTokens.success,);
+        transactionHash = buyTokens.transactionHash;
+        success = buyTokens.success
+        if (success == false) {
+            return res.status(401).json({ status: 401, message: buyTokens.error })
+        }
+    } else if (account_type === 'solana') {
+        buyTokens = await buyWithAddress(token.token_address);
+        transactionHash = buyTokens.transactionHash;
+        success = buyTokens.success
+    }
+    else if (account_type === 'tron') {
+        buyTokens = await buyOnTron(token.tron_address, amount); // Assuming tron_address is provided
+        transactionHash = buyTokens.transactionHash;
+        success = buyTokens.success;
+    }
+
+    return { transactionHash: transactionHash, success: success }
+};
+
+// Update market cap based on the blockchain type
+const updateMarketCap = async (token, account_type) => {
+    let marketCap;
+    if (account_type === 'ethereum') {
+        const token_cap = await getTokenLargestAccounts(token.token_address);
+        marketCap = token_cap.market_cap;
+    } else if (account_type === 'solana') {
+        const token_cap = await marketCapPolygon(token.token_address);
+        marketCap = token_cap.market_cap;
+    }
+    if (marketCap == NaN) {
+        marketCap = 1
+    }
+    console.log("market cap", marketCap)
+    return marketCap;
+};
+
+// Update user's coin holdings
+const updateUserHoldings = async (user, token, type, amount) => {
+    const coinIndex = user.coins_held.findIndex(coin => coin.coinId.toString() === token._id.toString());
+    console.log("5");
+    if (coinIndex > -1) {
+        // Update amount for existing holding
+        if (type === 'buy') {
+            user.coins_held[coinIndex].amount += parseFloat(amount);
+        } else if (type === 'sell') {
+            user.coins_held[coinIndex].amount = Math.max(0, user.coins_held[coinIndex].amount - parseFloat(amount));
+        }
+    } else {
+        // Add new coin holding
+        user.coins_held.push({ coinId: token._id, amount: type === 'buy' ? parseFloat(amount) : 0 });
+    }
+
+    await user.save();
+};
+// Trigger trade notifications
+const triggerTradeNotification = (user, token, type, amount) => {
+    const tradeNotification = {
+        user_name: user.user_name,
+        action: `${type} ${amount} Sol of ${token.name}`,
+        coin_photo: token.image,
+        token_address: token.token_address,
+        user_image: user.profile_photo,
+    };
+
+    pusher.trigger('trades-channel', 'trade-initiated', tradeNotification);
 };

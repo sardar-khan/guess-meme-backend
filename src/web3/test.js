@@ -2,13 +2,12 @@ const axios = require('axios')
 const CoinCreated = require("../models/coin_created");
 const web3 = require('@solana/web3.js');
 const anchor = require('@project-serum/anchor');
-const { AnchorProvider } = require('@project-serum/anchor');
+const { AnchorProvider, Program } = require('@coral-xyz/anchor');
 const idl = require('../web3/idl.json')
-exports.getTokenLargestAccounts = async (token_address) => {
-
-
-
-    console.log("token", token_address)
+const abi = require('../web3/abi.json');
+const { getBondingCurve, virtualTokenAmount } = require('./tokens');
+exports.getTokenLargestAccounts = async (req, res, token_address) => {
+    console.log(":token address", token_address)
     const url = process.env.REACT_APP_HELEIUS
     const headers = {
         'Content-Type': 'application/json',
@@ -69,7 +68,7 @@ const reteriveTokenInfo = async (taddress) => {
     const provider = new AnchorProvider(connection, '4Suo836P86rZ1n3ZMdCXn5R7YEerQg5D3s862WsdatJYdccPsPmEr1TYuqfsJqVrqF8HAbBdxbaYVqXfWCcgXeKo', 'confirmed');
 
     //make public provider
-    const program = new anchor.Program(idl, programId, provider)
+    const program = new Program(idl, programId, provider)
     const tokenAddress = new web3.PublicKey(taddress)
     const [C] = web3.PublicKey.findProgramAddressSync(
         [Buffer.from('bonding-curve'), tokenAddress.toBuffer()],
@@ -121,7 +120,7 @@ const tokenAgainstSol = async (taddress, amount) => {
 
 
         const data = await reteriveTokenInfo(taddress)
-
+        console.log("datra", data)
         //token price buy
         const tokenPriceInLamport = parseFloat(tokenamt * parseFloat(data?.virtualSolReserves)) /
             parseFloat(parseFloat(data?.virtualTokenReserves) - tokenamt)
@@ -204,3 +203,52 @@ function convertScientificToDecimal(scientificNotation) {
     // Return the adjusted coefficient with sign
     return (scientificNotation < 0 ? '-' : '') + adjustedCoefficient
 }
+//polygon to usd
+const polygonToUsd = async (req, res) => {
+    try {
+        const response = await axios.get('https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest', {
+            params: {
+                symbol: 'MATIC',
+                convert: 'USD'
+            },
+            headers: {
+                'X-CMC_PRO_API_KEY': 'fd603c3c-6199-4739-b977-451a94658308'
+            }
+        });
+
+        const price = response.data.data.MATIC.quote.USD.price;
+        console.log(`The current price of 1 MATIC in USD is: $${price}`);
+        return { priceInUsd: price }
+    } catch (error) {
+        console.error('Error fetching MATIC price:', error);
+    }
+
+
+}
+//get market cap of the polygon
+exports.marketCapPolygon = async (req, res) => {
+    try {
+        const { token_address } = req.body;
+
+        const result = await getBondingCurve(token_address)
+
+        console.log("result", result[2])
+        const total_tokens = 1000000000;
+
+        const soldTokens = total_tokens - parseFloat(result[2]);
+        console.log("tokens from bc", soldTokens)
+        // setBondingTokens(result?.result?.value[0]?.uiAmount);
+        const res = await virtualTokenAmount()
+        console.log("virtual", res)
+        const tokensInSol = parseFloat(res.virtualTokenAmount)?.toFixed(2);
+        const priceInUsd = await polygonToUsd();
+        console.log('gg', priceInUsd)
+        const marketCap = tokensInSol * priceInUsd.priceInUsd;
+        console.log("market_cap", marketCap)
+        return { market_cap: marketCap }
+    } catch (error) {
+
+    }
+}
+//
+

@@ -3,7 +3,7 @@ const express = require("express");
 const auth = require("../../config/auth");
 const router = express.Router();
 const multer = require('multer');
-const { getTokenAddressAndCurveAddress, getTokenLargestAccounts } = require('../../web3/test');
+const { getTokenAddressAndCurveAddress, getTokenLargestAccounts, marketCapPolygon } = require('../../web3/test');
 const upload = multer({ storage: multer.memoryStorage() });
 //user registration
 router.post('/register', userController.addWallets);
@@ -25,6 +25,7 @@ router.get('/user-profile', userController.viewUser);
 
 router.get('/token-address', getTokenAddressAndCurveAddress);
 router.post('/market-cap', getTokenLargestAccounts);
+router.post('/polygon/market-cap', marketCapPolygon)
 
 //add coin reviews 
 router.post('/feedback', auth, userController.addReview)

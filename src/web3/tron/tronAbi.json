@@ -1,0 +1,466 @@
+[
+    {
+        "inputs": [
+            {
+                "name": "_feeRecipient",
+                "type": "address"
+            },
+            {
+                "name": "_tokenFeeRecipient",
+                "type": "address"
+            }
+        ],
+        "stateMutability": "Nonpayable",
+        "type": "Constructor"
+    },
+    {
+        "inputs": [
+            {
+                "indexed": true,
+                "name": "previousOwner",
+                "type": "address"
+            },
+            {
+                "indexed": true,
+                "name": "newOwner",
+                "type": "address"
+            }
+        ],
+        "name": "OwnershipTransferred",
+        "type": "Event"
+    },
+    {
+        "inputs": [
+            {
+                "indexed": true,
+                "name": "_creator",
+                "type": "address"
+            },
+            {
+                "indexed": true,
+                "name": "_tokenAddress",
+                "type": "address"
+            }
+        ],
+        "name": "TokenCreated",
+        "type": "Event"
+    },
+    {
+        "inputs": [
+            {
+                "indexed": true,
+                "name": "_buyer",
+                "type": "address"
+            },
+            {
+                "indexed": true,
+                "name": "_tokenAddress",
+                "type": "address"
+            },
+            {
+                "indexed": true,
+                "name": "_amout",
+                "type": "uint256"
+            }
+        ],
+        "name": "TokensPurchased",
+        "type": "Event"
+    },
+    {
+        "inputs": [
+            {
+                "indexed": true,
+                "name": "_seller",
+                "type": "address"
+            },
+            {
+                "indexed": true,
+                "name": "_tokenAddress",
+                "type": "address"
+            },
+            {
+                "indexed": true,
+                "name": "_amout",
+                "type": "uint256"
+            }
+        ],
+        "name": "TokensSold",
+        "type": "Event"
+    },
+    {
+        "inputs": [
+            {
+                "indexed": true,
+                "name": "_tokenAddress",
+                "type": "address"
+            },
+            {
+                "indexed": true,
+                "name": "_ethAmount",
+                "type": "uint256"
+            },
+            {
+                "indexed": true,
+                "name": "_amout",
+                "type": "uint256"
+            }
+        ],
+        "name": "Withdraw",
+        "type": "Event"
+    },
+    {
+        "outputs": [
+            {
+                "name": "virtualTokenReserves",
+                "type": "uint256"
+            },
+            {
+                "name": "virtualEthReserves",
+                "type": "uint256"
+            },
+            {
+                "name": "realTokenReserves",
+                "type": "uint256"
+            },
+            {
+                "name": "realEthReserves",
+                "type": "uint256"
+            },
+            {
+                "name": "_totalSupply",
+                "type": "uint256"
+            },
+            {
+                "name": "maxSupplyPercentage",
+                "type": "uint8"
+            },
+            {
+                "name": "isCompleted",
+                "type": "bool"
+            }
+        ],
+        "inputs": [
+            {
+                "type": "address"
+            }
+        ],
+        "name": "bondingCurve",
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "outputs": [
+            {
+                "type": "uint256"
+            }
+        ],
+        "inputs": [
+            {
+                "name": "_token",
+                "type": "address"
+            },
+            {
+                "name": "_amount",
+                "type": "uint256"
+            }
+        ],
+        "name": "buyQuote",
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "_token",
+                "type": "address"
+            },
+            {
+                "name": "_amount",
+                "type": "uint256"
+            }
+        ],
+        "name": "buyTokens",
+        "stateMutability": "payable",
+        "type": "function"
+    },
+    {
+        "outputs": [
+            {
+                "type": "uint256"
+            }
+        ],
+        "inputs": [
+            {
+                "name": "_token",
+                "type": "address"
+            },
+            {
+                "name": "_amount",
+                "type": "uint256"
+            }
+        ],
+        "name": "calculateBuyFee",
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "_feeBasisPoints",
+                "type": "uint256"
+            }
+        ],
+        "name": "changeFeeBasisPoints",
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "_creator",
+                "type": "address"
+            },
+            {
+                "name": "_name",
+                "type": "string"
+            },
+            {
+                "name": "_symbol",
+                "type": "string"
+            },
+            {
+                "name": "_totalSupply",
+                "type": "uint256"
+            },
+            {
+                "name": "_maxSupplyPercentage",
+                "type": "uint8"
+            }
+        ],
+        "name": "createToken",
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "outputs": [
+            {
+                "type": "uint256"
+            }
+        ],
+        "name": "feeBasisPoints",
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "outputs": [
+            {
+                "type": "address"
+            }
+        ],
+        "name": "feeRecipient",
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "outputs": [
+            {
+                "type": "address[]"
+            }
+        ],
+        "inputs": [
+            {
+                "name": "_creator",
+                "type": "address"
+            }
+        ],
+        "name": "getCreatorTokens",
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "outputs": [
+            {
+                "type": "uint256"
+            }
+        ],
+        "name": "initialVirtualEthReserves",
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "outputs": [
+            {
+                "type": "bool"
+            }
+        ],
+        "inputs": [
+            {
+                "type": "address"
+            }
+        ],
+        "name": "isToken",
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "outputs": [
+            {
+                "type": "address"
+            }
+        ],
+        "name": "owner",
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "name": "renounceOwnership",
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "outputs": [
+            {
+                "type": "uint256"
+            }
+        ],
+        "inputs": [
+            {
+                "name": "_token",
+                "type": "address"
+            },
+            {
+                "name": "_amount",
+                "type": "uint256"
+            }
+        ],
+        "name": "sellQuote",
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "_token",
+                "type": "address"
+            },
+            {
+                "name": "_amount",
+                "type": "uint256"
+            }
+        ],
+        "name": "sellTokens",
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "outputs": [
+            {
+                "type": "address"
+            }
+        ],
+        "inputs": [
+            {
+                "type": "uint256"
+            }
+        ],
+        "name": "tokenAddress",
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "outputs": [
+            {
+                "type": "address"
+            }
+        ],
+        "inputs": [
+            {
+                "type": "address"
+            }
+        ],
+        "name": "tokenCreator",
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "outputs": [
+            {
+                "type": "address"
+            }
+        ],
+        "name": "tokenFeeRecipient",
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "newOwner",
+                "type": "address"
+            }
+        ],
+        "name": "transferOwnership",
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "token",
+                "type": "address"
+            }
+        ],
+        "name": "transferStuckTokens",
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "_token",
+                "type": "address"
+            },
+            {
+                "name": "_buyer",
+                "type": "address"
+            },
+            {
+                "name": "_amount",
+                "type": "uint256"
+            }
+        ],
+        "name": "userBuyTokens",
+        "stateMutability": "payable",
+        "type": "function"
+    },
+    {
+        "outputs": [
+            {
+                "type": "uint256"
+            }
+        ],
+        "name": "virtualTokenAmount",
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "name": "_token",
+                "type": "address"
+            }
+        ],
+        "name": "withdraw",
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "name": "withdrawStuckEth",
+        "stateMutability": "nonpayable",
+        "type": "function"
+    },
+    {
+        "stateMutability": "Payable",
+        "type": "Receive"
+    }
+]
