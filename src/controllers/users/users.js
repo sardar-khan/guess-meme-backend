@@ -601,11 +601,11 @@ const coin_deployment_request = require("../../models/coins_deploy_request");
 
 // Read the default image file
 
-const defaultImagePath = path.join(__dirname, '../../../uploads/default.jpg');
-const defaultImage = {
-    data: fs.readFileSync(defaultImagePath),
-    contentType: 'image/jpeg'
-};
+// const defaultImagePath = path.join(__dirname, '../../../uploads/default.jpg');
+// const defaultImage = {
+//     data: fs.readFileSync(defaultImagePath),
+//     contentType: 'image/jpeg'
+// };
 
 //get user trust score 
 async function calculateTrustScore(creatorId) {
