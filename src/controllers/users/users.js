@@ -330,9 +330,9 @@ exports.createCoin = async (req, res) => {
 
 exports.viewCoin = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit);
+    const limit = parseInt(req.query.limit) || 1000;
     const sortBy = req.query.sortBy || 'createdAt';
-    const order = req.query.order === 'asc' ? 1 : -1; // Default order is descending
+    const order = req.query.order === 'desc' ? 1 : -1; // Default order is descending
 
     // Define sorting options
     const sortOptions = {
