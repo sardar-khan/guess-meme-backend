@@ -27,7 +27,7 @@ const CoinCreatedSchema = new Schema({
         type: mongoose.Schema.Types.Mixed,
         default: {},
     },
-    timer: { type: Date },
+    timer: { type: Date, required: true },
     coin_status: { type: Boolean, default: false },
     time: { type: Date, default: Date.now },
     status: { type: String, enum: ['created', 'deployed'] },

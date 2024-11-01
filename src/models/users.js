@@ -24,7 +24,7 @@ const UserSchema = new Schema({
         blockchain: {
             type: String,
             required: true,
-            enum: ['ethereum', 'tron', 'solana']
+            enum: ['ethereum', 'tron', 'solana', 'polygon']
         },
         address: {
             type: String,

@@ -449,7 +449,7 @@ exports.postLaunchTrade = async (req, res, user, token, type, amount, account_ty
 //call from blockchain
 const processBuy = async (req, res, token, amount, account_type) => {
     let buyTokens, transactionHash, success, error;
-    if (account_type === 'ethereum') {
+    if (account_type === 'ethereum' || account_type === 'polygon') {
         buyTokens = await buyTokensOnBlockchain(token.token_address, amount);
         console.log("success", buyTokens.success,);
         transactionHash = buyTokens.transactionHash;
@@ -463,7 +463,8 @@ const processBuy = async (req, res, token, amount, account_type) => {
         success = buyTokens.success
     }
     else if (account_type === 'tron') {
-        buyTokens = await buyOnTron(token.tron_address, amount); // Assuming tron_address is provided
+        console.log("tron")
+        buyTokens = await buyOnTron(token.token_address, amount); // Assuming tron_address is provided
         transactionHash = buyTokens.transactionHash;
         success = buyTokens.success;
     }

@@ -320,7 +320,7 @@ exports.createCoin = async (req, res) => {
             console.log("initated-noti", tradeNotification)
 
             pusher.trigger('coin-created-channel', 'coin-created', tradeNotification);
-            return res.status(200).json({ message: "Coin created successfully.", data: newCoin, metadata_link: `/user/metadata/${newCoin._id}` });
+            return res.status(200).json({ status: 200, message: "Coin created successfully.", data: newCoin, metadata_link: `/user/metadata/${newCoin._id}` });
         }
     } catch (error) {
         console.error(error);
@@ -330,7 +330,7 @@ exports.createCoin = async (req, res) => {
 
 exports.viewCoin = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
+    const limit = parseInt(req.query.limit);
     const sortBy = req.query.sortBy || 'createdAt';
     const order = req.query.order === 'asc' ? 1 : -1; // Default order is descending
 
@@ -370,7 +370,9 @@ exports.viewCoin = async (req, res) => {
 
             const latestThread = await Thread.findOne({ token_id: coin._id })
                 .sort({ createdAt: -1 });
-            if (coin.timer < Date.now()) {
+            const now = new Date();
+            const formattedDate = now.toISOString();
+            if (coin.timer < formattedDate) {
                 console.log("showw all")
 
                 return {

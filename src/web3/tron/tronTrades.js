@@ -27,8 +27,8 @@ const deployOnTron = async (tokenData) => {
         name = name.toString();
         symbol = symbol.toString();
         totalSupply = totalSupply.toString();
-        const totalSupplyInWei = tronWeb.toSun(totalSupply); // Convert to SUN (Tron's smallest unit)
-        console.log("totalSupplyInWei", totalSupplyInWei)
+        // const totalSupplyInWei = tronWeb.toSun(totalSupply); // Convert to SUN (Tron's smallest unit)
+        // console.log("totalSupplyInWei", totalSupplyInWei)
         const tx = await factoryContract.createToken(WALLET_ADDRESS, name, symbol, 1, 100)
             .send();
         console.log("Transaction hash:", tx);

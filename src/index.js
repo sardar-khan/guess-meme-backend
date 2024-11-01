@@ -83,13 +83,16 @@ app.post("/getimageurl", auth, upload.single('profile_photo'), async (req, res) 
 
 // Helper function to deploy tokens based on blockchain type
 async function deployToken(coin, type) {
-    if (type === 'ethereum') {
+    console.log("type", type)
+    if (type === 'ethereum' || type === 'polygon') {
+        console.log("ethereum")
         return await deployTokenOnBlockchain({
             name: coin.name,
             symbol: 'ST',
             totalSupply: coin.max_supply
         });
     } else if (type === 'solana') {
+        console.log("my so")
         return await create('Fresh Token', 'FT', 'http://localhost:5000/user/metadata/67077e41d45a7d48dbd15975', 100);
     }
     else if (type === 'tron') {
@@ -110,7 +113,8 @@ async function processBuyRequests(coin, type) {
     for (const req of requests) {
         try {
             let buyTxHash;
-            if (type === 'ethereum') {
+            if (type === 'ethereum' || type === 'polygon') {
+
                 buyTxHash = await buyTokensOnBlockchain(coin.token_address, req.amount);
             } else if (type === 'solana') {
                 const userAta = await initializeUserATA(wallet.payer, coin.wallet_address, mintaddy);
@@ -157,8 +161,9 @@ async function checkHiddenCoins() {
             const txHash = await deployToken(coin, type);
             coin.status = 'deployed';
             coin.transaction_hash = txHash.hash;
-            coin.token_address = type === 'ethereum' ? "0x76148Cd0a2e51C54B2950a23Dd18aFDF98239e4F" : txHash.token_address;
-            await coin.save();
+            coin.token_address = type === 'ethereum' ? "0x76148Cd0a2e51C54B2950a23Dd18aFDF98239e4F" :
+                type === 'polygon' ? "0x76148Cd0a2e51C54B2950a23Dd18aFDF98239e4F" :
+                    txHash.token_address; await coin.save();
 
             deploymentRequest.status = 'approved';
             await deploymentRequest.save();

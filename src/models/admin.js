@@ -6,7 +6,7 @@ const jwt = require('jsonwebtoken');
 const WalletAddressSchema = new mongoose.Schema({
     blockchain: {
         type: String,
-        enum: ['ethereum', 'tron', 'solana'],
+        enum: ['ethereum', 'tron', 'solana', 'polygon'],
         required: true
     },
     address: {
