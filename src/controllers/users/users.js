@@ -330,17 +330,16 @@ exports.createCoin = async (req, res) => {
 
 exports.viewCoin = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit);
+    const limit = parseInt(req.query.limit) || 1000;
     const sortBy = req.query.sortBy || 'createdAt';
     const order = req.query.order === 'asc' ? 1 : -1; // Default order is descending
-
     // Define sorting options
     const sortOptions = {
         market_cap: { market_cap: order },
         reply_count: { threadsCount: order },
         last_reply: { 'latestThread.createdAt': order },
-        creation_time: { createdAt: order },
-        default: { createdAt: order } // Default sort
+        creation_time: { time: order }, // Changed to sort by `time`
+        default: { time: -1 } // Default sort by `time` descending
     };
 
     // Determine sort field
@@ -371,8 +370,8 @@ exports.viewCoin = async (req, res) => {
             const latestThread = await Thread.findOne({ token_id: coin._id })
                 .sort({ createdAt: -1 });
             const now = new Date();
-            const formattedDate = now.toISOString();
-            if (coin.timer < formattedDate) {
+            // const formattedDate = now.toISOString();
+            if (coin.timer < now) {
                 console.log("showw all")
 
                 return {
@@ -398,23 +397,22 @@ exports.viewCoin = async (req, res) => {
                 };
             }
         }));
-
+        console.log("coinsWithDetails", coinsWithDetails)
         // Apply sorting
-        coinsWithDetails.sort((a, b) => {
-            if (sortBy === 'market_cap') {
-                return sortField.market_cap ? (order === 1 ? a.market_cap - b.market_cap : b.market_cap - a.market_cap) : 0;
-            } else if (sortBy === 'reply_count') {
-                return sortField.threadsCount ? (order === 1 ? a.threadsCount - b.threadsCount : b.threadsCount - a.threadsCount) : 0;
-            } else if (sortBy === 'last_reply') {
-                const dateA = a.latestThread ? new Date(a.latestThread.createdAt) : new Date(0);
-                const dateB = b.latestThread ? new Date(b.latestThread.createdAt) : new Date(0);
-                return order === 1 ? dateA - dateB : dateB - dateA;
-            } else {
-                const dateA = new Date(a.coin.time);
-                const dateB = new Date(b.coin.time);
-                return order === 1 ? dateA - dateB : dateB - dateA;
-            }
-        });
+        if (sortBy !== 'createdAt') {
+            coinsWithDetails.sort((a, b) => {
+                if (sortBy === 'market_cap') {
+                    return sortField.market_cap ? (order === 1 ? a.market_cap - b.market_cap : b.market_cap - a.market_cap) : 0;
+                } else if (sortBy === 'reply_count') {
+                    return sortField.threadsCount ? (order === 1 ? a.threadsCount - b.threadsCount : b.threadsCount - a.threadsCount) : 0;
+                } else if (sortBy === 'last_reply') {
+                    const dateA = a.latestThread ? new Date(a.latestThread.createdAt) : new Date(0);
+                    const dateB = b.latestThread ? new Date(b.latestThread.createdAt) : new Date(0);
+                    return order === 1 ? dateA - dateB : dateB - dateA;
+                }
+                return 0;
+            });
+        }
 
         // Pagination
         const totalCoins = coinsWithDetails.length;
@@ -428,7 +426,7 @@ exports.viewCoin = async (req, res) => {
         if (!paginatedCoins.length) {
             return res.status(404).json({ message: 'No coins found.' });
         }
-
+        console.log("paginatedCoins", paginatedCoins)
         // Respond with paginated and sorted coin data
         return res.status(200).json({
             status: 200,
