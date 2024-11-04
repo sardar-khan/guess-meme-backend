@@ -439,6 +439,7 @@ exports.postLaunchTrade = async (req, res, user, token, type, amount, account_ty
     await token.save();
 
     newTrade.transaction_hash = transactionHash;
+    await newTrade.save();
     await updateUserHoldings(user, token, type, amount);
 
     triggerTradeNotification(user, token, type, amount);
