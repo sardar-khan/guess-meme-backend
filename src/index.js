@@ -91,7 +91,8 @@ async function deployToken(coin, type) {
             symbol: 'ST',
             totalSupply: coin.max_supply
         });
-    } else if (type === 'solana') {
+    }
+    else if (type === 'solana') {
         console.log("my so")
         return await create('Fresh Token', 'FT', 'http://localhost:5000/user/metadata/67077e41d45a7d48dbd15975', 100);
     }
@@ -151,19 +152,22 @@ async function checkHiddenCoins() {
     // Deploy expired hidden coins
     const expiredCoins = await CoinCreated.find({ coin_status: false, timer: { $lte: now } });
     for (const coin of expiredCoins) {
+
         const creator = await User.findById(coin.creator);
         const type = creator.wallet_address?.[0]?.blockchain;
         const deploymentRequest = await CoinDeploymentRequest.findOne({ coin_id: coin._id });
-
+        console.log("start ", type)
         if (!deploymentRequest || deploymentRequest.status === 'approved') continue;
 
         try {
+            console.log("start deploying", type)
             const txHash = await deployToken(coin, type);
             coin.status = 'deployed';
             coin.transaction_hash = txHash.hash;
             coin.token_address = type === 'ethereum' ? "0x76148Cd0a2e51C54B2950a23Dd18aFDF98239e4F" :
                 type === 'polygon' ? "0x76148Cd0a2e51C54B2950a23Dd18aFDF98239e4F" :
-                    txHash.token_address; await coin.save();
+                    txHash.token_address;
+            await coin.save();
 
             deploymentRequest.status = 'approved';
             await deploymentRequest.save();

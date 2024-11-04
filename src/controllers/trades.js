@@ -133,7 +133,6 @@ exports.getKingOfTheHill = async (req, res) => {
 exports.getGraphData = async (req, res) => {
     try {
         const { token_id } = req.query;
-
         // Validate input
         if (!token_id) {
             return res.status(400).json({ error: 'token_id is required' });
@@ -153,7 +152,7 @@ exports.getGraphData = async (req, res) => {
 
         // Check if trades are available
         if (trades.length === 0) {
-            return res.status(404).json({ error: 'No trades found for the specified token and date range' });
+            return res.status(404).json({ status: 404, error: 'No trades found for the specified token and date range' });
         }
 
         // Process trades to calculate daily statistics
@@ -184,7 +183,7 @@ exports.getGraphData = async (req, res) => {
             close: dailyData[date].close
         }));
 
-        return res.json({
+        return res.status(200).json({
             status: 200,
             data: result
         });
