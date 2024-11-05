@@ -7,8 +7,8 @@ const ThreadSchema = new Schema({
     thread_id: { type: String, required: true, unique: true },
     reply_id: { type: String, default: null },
     image: {
-        data: Buffer,
-        contentType: String
+        type: String,
+        default: null
     },
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },

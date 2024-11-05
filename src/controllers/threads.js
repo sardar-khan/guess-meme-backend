@@ -6,7 +6,7 @@ const { generateId } = require("../services/threads/thread");
 
 exports.createThread = async (req, res) => {
     const wallet_address = req.user.address;
-    const { text, token_id, reply_id } = req.body;
+    const { text, token_id, reply_id, image } = req.body;
 
     try {
         const user = await User.findOne({ 'wallet_address.address': wallet_address })
@@ -19,18 +19,10 @@ exports.createThread = async (req, res) => {
         if (!token) {
             return res.status(200).json({ status: 404, message: 'Token not found.' });
         }
-        let image = null;
-        if (req.file) {
-            console.log("here", req.file);
-            image = {
-                data: req.file.buffer,
-                contentType: req.file.mimetype
-            };
-        }
         const threadId = generateId();
         const newThread = new Thread({
-            text,
-            image,
+            text: text,
+            image: image,
             token_id: token_id,
             thread_id: threadId,
             reply_id: reply_id || null // Link to the parent thread if replying

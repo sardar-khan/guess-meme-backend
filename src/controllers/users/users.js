@@ -290,22 +290,6 @@ exports.createCoin = async (req, res) => {
                 status: 'pending', // Request is pending for admin approval
             });
             await deployment_request.save();
-            // Create initial trade for the new coin via HTTP request
-            // let pass_id = newCoin._id;
-            // pass_id = pass_id.toString()
-            // try {
-            //     const response = await createBuyTrade(res, pass_id, 'buy', amount, 'sol', token_amount, transaction_hash, user.wallet_address)
-
-            //     if (response.error === false) {
-            //         console.log("Trade completed successfully")
-            //     }
-            //     else {
-            //         console.log("Trade not completed ")
-            //     }
-            // } catch (tradeError) {
-            //     console.error(tradeError);
-            //     return res.status(500).json({ error: 'Error creating initial trade.' });
-            // }
             await user.save();
             const tradeNotification = {
                 user_name: user.user_name,

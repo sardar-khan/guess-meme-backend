@@ -448,6 +448,7 @@ exports.postLaunchTrade = async (req, res, user, token, type, amount, account_ty
 };
 //call from blockchain
 const processBuy = async (req, res, token, amount, account_type) => {
+    console.log("aara hn")
     let buyTokens, transactionHash, success, error;
     if (account_type === 'ethereum' || account_type === 'polygon') {
         buyTokens = await buyTokensOnBlockchain(token.token_address, amount);
@@ -458,6 +459,7 @@ const processBuy = async (req, res, token, amount, account_type) => {
             return res.status(401).json({ status: 401, message: buyTokens.error })
         }
     } else if (account_type === 'solana') {
+        console.log("solo")
         buyTokens = await buyWithAddress(token.token_address);
         transactionHash = buyTokens.transactionHash;
         success = buyTokens.success
