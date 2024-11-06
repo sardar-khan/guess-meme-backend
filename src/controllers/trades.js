@@ -5,8 +5,9 @@ const pusher = require('../../src/config/pusher');
 const { getTokenLargestAccounts, marketCapPolygon } = require("../web3/test");
 const buyers_requests = require("../models/buyers_requests");
 const { buyTokensOnBlockchain } = require("../web3/tokens");
-const { buyWithAddress } = require("../web3/solana/buyTokens");
+const { buyWithAddress, initializeUserATA } = require("../web3/solana/buyTokens");
 const { buyOnTron } = require("../web3/tron/tronTrades");
+const { mintaddy, wallet } = require('../web3/solana/config');
 exports.createTrade = async (req, res) => {
     const { token_id, type, amount, account_type, token_amount } = req.body;
     const account = req.user.address;
@@ -422,13 +423,12 @@ exports.postLaunchTrade = async (req, res, user, token, type, amount, account_ty
         account_type,
         transaction_hash: null
     });
-
+    let result
     await newTrade.save();
-
-    let transactionHash = null;
     if (type === 'buy') {
         console.log("her3")
-        transactionHash = await processBuy(req, res, token, amount, account_type);
+        result = await processBuy(req, res, token, amount, account_type);
+        console.log("transactionHash", result.transactionHash)
         token.max_supply = supply + parseFloat(amount);
     } else if (type === 'sell') {
         token.max_supply = supply - parseFloat(amount);
@@ -437,8 +437,8 @@ exports.postLaunchTrade = async (req, res, user, token, type, amount, account_ty
 
     // token.market_cap = await updateMarketCap(token, account_type);
     await token.save();
-
-    newTrade.transaction_hash = transactionHash;
+    console.log("transactionHash", result.transactionHash)
+    newTrade.transaction_hash = result.transactionHash;
     await newTrade.save();
     await updateUserHoldings(user, token, type, amount);
 
@@ -460,15 +460,23 @@ const processBuy = async (req, res, token, amount, account_type) => {
         }
     } else if (account_type === 'solana') {
         console.log("solo")
-        buyTokens = await buyWithAddress(token.token_address);
+        const userAta = await initializeUserATA(wallet.payer, token.token_address, mintaddy);
+        buyTokens = await buyWithAddress(userAta);
         transactionHash = buyTokens.transactionHash;
+        console.log("transactionHashin", transactionHash)
         success = buyTokens.success
+        if (success == false) {
+            return res.status(401).json({ status: 401, message: buyTokens.error })
+        }
     }
     else if (account_type === 'tron') {
         console.log("tron")
         buyTokens = await buyOnTron(token.token_address, amount); // Assuming tron_address is provided
         transactionHash = buyTokens.transactionHash;
         success = buyTokens.success;
+        if (success == false) {
+            return res.status(401).json({ status: 401, message: buyTokens.error })
+        }
     }
 
     return { transactionHash: transactionHash, success: success }

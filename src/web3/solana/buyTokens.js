@@ -107,7 +107,6 @@ async function buyWithAddress(address) {
         }
 
         const { bonding_curve: k } = await lx_global();
-        console.log("kay", k);
         const {
             virtual_token_reserves,
             virtual_sol_reserves,
