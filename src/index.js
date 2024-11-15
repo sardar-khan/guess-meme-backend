@@ -42,7 +42,7 @@ app.use('/thread', thread_routes)
 app.use('/trade', trade_routes)
 
 app.get("/", (req, res) => {
-    res.send("Hello, Welcome to guess meme platform!");
+    res.send("Hello, Welcome to guess meme !");
 });
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 const notificationRoutes = require('./routes/notification');
