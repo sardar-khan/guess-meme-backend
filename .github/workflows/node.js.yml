@@ -1,0 +1,37 @@
+name: CICD
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Checkout the source code
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      # Step 2: Build Docker image
+      - name: Build Docker image
+        run: docker build -t myapp/nodejs-app .
+
+      # Step 3: Push Docker image (optional)
+      - name: Push to Docker Hub
+        run: |
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+          docker push myapp/nodejs-app:latest
+  
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      # Step 4: Pull the image from Docker Hub
+      - name: Pull Docker image
+        run: docker pull myapp/nodejs-app:latest
+
+      # Step 5: Restart the container with the new image
+      - name: Restart container
+        run: |
+          docker rm -f nodejs-app-container || true
+          docker run -d -p 5000:5000 --name nodejs-app-container myapp/nodejs-app:latest
