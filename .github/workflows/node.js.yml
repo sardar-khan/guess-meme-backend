@@ -2,36 +2,28 @@ name: CICD
 
 on:
   push:
-    branches: [main]
+    branches: [cicd-docker-ec2]
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: [ubuntu-latest]
     steps:
-      # Step 1: Checkout the source code
-      - name: Checkout code
+      - name: Checkout source
         uses: actions/checkout@v3
-      
-      # Step 2: Build Docker image
-      - name: Build Docker image
-        run: docker build -t myapp/nodejs-app .
-
-      # Step 3: Push Docker image (optional)
-      - name: Push to Docker Hub
-        run: |
-          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-          docker push myapp/nodejs-app:latest
-  
+      - name: Login to docker hub
+        run: docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }} 
+      - name: Build docker image
+        run: docker build -t integrationninjas/nodejs-app .
+      - name: Publish image to docker hub
+        run: docker push integrationninjas/nodejs-app:latest
+        
   deploy:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: [aws-ec2]
     steps:
-      # Step 4: Pull the image from Docker Hub
-      - name: Pull Docker image
-        run: docker pull myapp/nodejs-app:latest
-
-      # Step 5: Restart the container with the new image
-      - name: Restart container
-        run: |
-          docker rm -f nodejs-app-container || true
-          docker run -d -p 5000:5000 --name nodejs-app-container myapp/nodejs-app:latest
+      - name: Pull image from docker hub
+        run: docker pull integrationninjas/nodejs-app:latest
+      - name: Delete old container
+        run: docker rm -f nodejs-app-container
+      - name: Run docker container
+        run: docker run -d -p 5000:5000 --name nodejs-app-container integrationninjas/nodejs-app
