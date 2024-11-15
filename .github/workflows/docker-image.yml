@@ -1,0 +1,31 @@
+name: CICD
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+      - name: Login to docker hub
+        run: docker login -u ${{ secrets.DEOCKER_USER_NAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+      - name: Build docker image
+        run: docker buildx build -t faisalriazawan/nodejs-app:latest .
+      - name: Publish image to docker hub
+        run: docker push faisalriazawan/nodejs-app:latest
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest  # EC2 is not supported directly, so using ubuntu-latest
+    steps:
+      - name: Login to docker hub (on deploy)
+        run: docker login -u ${{ secrets.DEOCKER_USER_NAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+      - name: Pull image from docker hub
+        run: docker pull faisalriazawan/nodejs-app:latest
+      - name: Delete old container
+        run: docker rm -f nodejs-app-container || true  # Ignore if container doesn't exist
+      - name: Run docker container
+        run: docker run -d -p 5000:5000 --name nodejs-app-container faisalriazawan/nodejs-app:latest
