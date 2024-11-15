@@ -48,12 +48,12 @@ jobs:
       - name: Pull Image from Docker Hub
         run: docker pull faisalriazawan/guess-meme:latest
 
-      # Step 3: Delete the old container if it exists (improves reliability)
+      # Step 3: Delete the old container if it exists (simplified command)
       - name: Delete Old Container (if exists)
         run: |
-          docker ps -aq --filter "name=nodejs-app-container" | grep -q . && docker rm -f nodejs-app-container || echo "No container to remove"
+          docker ps -aq --filter "name=nodejs-app-container" | xargs --no-run-if-empty docker rm -f
 
-      # Step 4: Run Docker Container
+      # Step 4: Run Docker Container with environment variables
       - name: Run Docker Container
         run: |
           echo "${{ secrets.ENV_FILE }}" > .env
