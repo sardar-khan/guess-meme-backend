@@ -26,11 +26,13 @@ jobs:
       - name: Set up Environment Variables
         run: echo "${{ secrets.ENV_FILE }}" > .env
 
-      # Step 5: Build and push the Docker image
+      # Step 5: Build Docker image with Buildx caching for faster builds
       - name: Build and Push Docker Image
         run: |
           docker buildx build \
             --platform linux/amd64,linux/arm64 \
+            --cache-from type=registry,ref=ghcr.io/faisalriazawan/guess-meme:cache \
+            --cache-to type=registry,ref=ghcr.io/faisalriazawan/guess-meme:cache,mode=max \
             -t faisalriazawan/guess-meme:latest \
             --push .
 
@@ -42,13 +44,14 @@ jobs:
       - name: Login to Docker Hub
         run: docker login -u ${{ secrets.DEOCKER_USER_NAME }} -p ${{ secrets.DOCKER_PASSWORD }}
 
-      # Step 2: Pull the Docker image from Docker Hub
+      # Step 2: Pull the latest Docker image from Docker Hub (using cache)
       - name: Pull Image from Docker Hub
         run: docker pull faisalriazawan/guess-meme:latest
 
-      # Step 3: Delete the old container if it exists
-      - name: Delete Old Container
-        run: docker rm -f nodejs-app-container || true
+      # Step 3: Delete the old container if it exists (improves reliability)
+      - name: Delete Old Container (if exists)
+        run: |
+          docker ps -aq --filter "name=nodejs-app-container" | grep -q . && docker rm -f nodejs-app-container || echo "No container to remove"
 
       # Step 4: Run Docker Container
       - name: Run Docker Container

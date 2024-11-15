@@ -1,20 +1,21 @@
-# Use the official Node.js 18 image as the base
-FROM node:18
+FROM node:18 
 
-# Set the working directory inside the container
+# Create app directory
 WORKDIR /app
 
-# Copy only package.json and package-lock.json to install dependencies
-COPY package.json package-lock.json ./
+# Copy application dependency manifests to the container image.
+# A wildcard is used to ensure copying both package.json AND package-lock.json (when available).
+# Copying this first prevents re-running npm install on every code change.
+COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+# Install app dependencies using the `npm ci` command instead of `npm install`
+RUN npm ci
 
-# Copy the entire project, including the .env file
+# Bundle app source
 COPY . .
 
-# Expose the application port
-EXPOSE 5000
+#RUN npm run build
 
-# Run the application
-CMD ["npm", "run", "start"]
+
+EXPOSE 5000
+CMD [ "npm", "start" ]
