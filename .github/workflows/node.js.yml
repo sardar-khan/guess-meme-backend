@@ -13,9 +13,9 @@ jobs:
       - name: Login to docker hub
         run: docker login -u ${{secrets.DEOCKER_USER_NAME}} -p ${{secrets.DOCKER_PASSWORD}} 
       - name: Build docker image
-        run: docker build -t integrationninjas/nodejs-app .
+        run: docker build -t faisalriazawan/nodejs-app:latest
       - name: Publish image to docker hub
-        run: docker push integrationninjas/nodejs-app:latest
+        run: docker push faisalriazawan/nodejs-app:latest
         
   deploy:
     needs: build
