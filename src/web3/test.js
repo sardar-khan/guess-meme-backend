@@ -6,7 +6,8 @@ const { AnchorProvider, Program } = require('@coral-xyz/anchor');
 const idl = require('../web3/idl.json')
 const abi = require('../web3/abi.json');
 const { getBondingCurve, virtualTokenAmount } = require('./tokens');
-exports.getTokenLargestAccounts = async (req, res, token_address) => {
+exports.getTokenLargestAccounts = async (req, res) => {
+    const token_address = "35KyjBAG6AMDMkN55WvbZ2YUaPTMqU8gca3wc855HFnZ";
     console.log(":token address", token_address)
     const url = process.env.REACT_APP_HELEIUS
     const headers = {

@@ -262,7 +262,7 @@ exports.createCoin = async (req, res) => {
                 telegram_link,
                 website,
                 token_address: null,
-                max_supply: 0,
+                max_supply: amount,
                 max_buy_percentage,
                 bonding_curve,
                 metadata: {
@@ -274,6 +274,7 @@ exports.createCoin = async (req, res) => {
                     website: website
                 },
                 timer,
+                amount,
                 status: 'created',
                 is_created: true,
             });
@@ -362,6 +363,7 @@ exports.viewCoin = async (req, res) => {
                     coin,
                     market_cap: soldAmount.length ? soldAmount[0].totalSold : 0,
                     trust_score: trust_score,
+                    status: coin.status,
                     threadsCount: threadsCount,
                     latestThread: latestThread || null
                 };
@@ -372,6 +374,7 @@ exports.viewCoin = async (req, res) => {
                         name: coin.metadata?.name,
                         market_cap: soldAmount.length ? soldAmount[0].totalSold : 0,
                         trust_score: trust_score,
+                        status: coin.status,
                         creator: coin.creator
                     },
 
@@ -466,7 +469,8 @@ exports.topHolders = async (req, res) => {
             return {
                 user_name: user ? user.user_name : 'Unknown',
                 profile_photo: user ? user.profile_photo : '',
-                amount: holder.totalAmount
+                amount: holder.totalAmount,
+                address: coin.token_address
             };
         }));
 

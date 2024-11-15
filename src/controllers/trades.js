@@ -432,14 +432,28 @@ exports.postLaunchTrade = async (req, res, user, token, type, amount, account_ty
         token.max_supply = supply + parseFloat(amount);
     } else if (type === 'sell') {
         token.max_supply = supply - parseFloat(amount);
-        if (token.max_supply < 0) token.max_supply = 0;
+        if (token.max_supply <= 0) {
+            token.max_supply = 0;
+        }
     }
 
     // token.market_cap = await updateMarketCap(token, account_type);
-    await token.save();
     console.log("transactionHash", result.transactionHash)
     newTrade.transaction_hash = result.transactionHash;
     await newTrade.save();
+    if (token.max_supply >= process.env.HALF_MARK) {
+        console.log("after threshold", supply);
+
+        // Update King of the Hill
+        token.is_king_of_the_hill.value = true;
+        token.is_king_of_the_hill.time = Date.now();
+        token.badge = true;
+    } else {
+        token.is_king_of_the_hill.value = false;
+    }
+    await token.save();
+
+
     await updateUserHoldings(user, token, type, amount);
 
     triggerTradeNotification(user, token, type, amount);

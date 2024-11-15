@@ -47,6 +47,7 @@ app.get("/", (req, res) => {
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 const notificationRoutes = require('./routes/notification');
 const { deployOnTron, buyOnTron } = require('./web3/tron/tronTrades');
+const { getTokenLargestAccounts } = require('./web3/test');
 
 // Use routes
 app.use('/notifications', notificationRoutes);
@@ -126,6 +127,25 @@ async function processBuyRequests(coin, type) {
             req.status = 'approved';
             req.transaction_hash = buyTxHash.transactionHash;
             await req.save();
+            // Update the supply based on the amount bought
+            coin.max_supply = supply + parseFloat(req.amount);
+            await coin.save();
+            // Check if the token supply crossed the threshold for "King of the Hill"
+            if (coin.max_supply >= process.env.HALF_MARK) {
+                console.log("After threshold, King of the Hill:", coin.max_supply);
+
+                // Set the King of the Hill status
+                coin.is_king_of_the_hill = {
+                    value: true,
+                    time: Date.now()  // Record the time when the coin becomes King of the Hill
+                };
+                coin.badge = true;  // Assign the badge
+            } else {
+                coin.is_king_of_the_hill.value = false;  // Set to false if below threshold
+            }
+
+            // Save the updated coin information
+            await coin.save();
         } catch (error) {
             console.error(`Failed to process buy request for user ${req.user_id}`, error);
         }
@@ -188,3 +208,4 @@ app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
 
+getTokenLargestAccounts()
