@@ -363,7 +363,7 @@ exports.viewCoin = async (req, res) => {
                     coin,
                     market_cap: soldAmount.length ? soldAmount[0].totalSold : 0,
                     trust_score: trust_score,
-                    status: coin.status,
+                    status: coin?.status,
                     threadsCount: threadsCount,
                     latestThread: latestThread || null
                 };
@@ -374,7 +374,7 @@ exports.viewCoin = async (req, res) => {
                         name: coin.metadata?.name,
                         market_cap: soldAmount.length ? soldAmount[0].totalSold : 0,
                         trust_score: trust_score,
-                        status: coin.status,
+                        status: coin?.status,
                         creator: coin.creator
                     },
 
