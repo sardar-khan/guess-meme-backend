@@ -409,7 +409,9 @@ exports.preLaunchTrade = async (req, res, user, token, type, amount, token_amoun
 };
 //popst launch trade
 exports.postLaunchTrade = async (req, res, user, token, type, amount, account_type) => {
-    let supply = parseFloat(token.max_supply);
+
+    let supply = parseFloat(token);
+    console.log("supply", supply, token)
     if (isNaN(supply)) {
         return res.status(400).json({ message: 'Invalid token max supply.' });
     }
@@ -441,7 +443,7 @@ exports.postLaunchTrade = async (req, res, user, token, type, amount, account_ty
     console.log("transactionHash", result.transactionHash)
     newTrade.transaction_hash = result.transactionHash;
     await newTrade.save();
-    if (token.max_supply >= process.env.HALF_MARK) {
+    if (token.max_supply >= parseFloat(process.env.HALF_MARK)) {
         console.log("after threshold", supply);
 
         // Update King of the Hill
