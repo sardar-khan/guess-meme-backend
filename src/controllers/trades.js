@@ -410,7 +410,7 @@ exports.preLaunchTrade = async (req, res, user, token, type, amount, token_amoun
 //popst launch trade
 exports.postLaunchTrade = async (req, res, user, token, type, amount, account_type) => {
 
-    let supply = parseFloat(token);
+    let supply = token.max_supply;
     console.log("supply", supply, token)
     if (isNaN(supply)) {
         return res.status(400).json({ message: 'Invalid token max supply.' });
