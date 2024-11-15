@@ -11,9 +11,9 @@
   "description": "",
   "dependencies": {
     "@coral-xyz/anchor": "^0.29.0",
+    "@noble/secp256k1": "^1.7.1",
     "@project-serum/anchor": "^0.26.0",
     "@solana/spl-token": "^0.4.8",
-    "@noble/secp256k1": "^1.7.1",
     "@solana/web3.js": "^1.95.3",
     "bcrypt": "^5.1.1",
     "bn.js": "^5.2.1",
@@ -21,6 +21,7 @@
     "bs58": "^6.0.0",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
+    "dotenv": "^10.0.0",
     "ethers": "^6.13.4",
     "express": "^4.19.2",
     "moment": "^2.30.1",
