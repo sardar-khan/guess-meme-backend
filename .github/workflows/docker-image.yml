@@ -50,9 +50,10 @@ jobs:
       - name: Delete Old Container
         run: docker rm -f nodejs-app-container || true
 
-      # Step 4: Run the new Docker container
+      # Step 4: Run Docker Container
       - name: Run Docker Container
         run: |
+          echo "${{ secrets.ENV_FILE }}" > .env
           docker run -d \
             -p 5000:5000 \
             --name nodejs-app-container \
