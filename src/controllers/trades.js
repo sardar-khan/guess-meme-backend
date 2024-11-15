@@ -410,6 +410,7 @@ exports.preLaunchTrade = async (req, res, user, token, type, amount, token_amoun
 //popst launch trade
 exports.postLaunchTrade = async (req, res, user, token, type, amount, account_type) => {
     let supply = parseFloat(token.max_supply);
+    console.log("tokne",token)
     if (isNaN(supply)) {
         return res.status(400).json({ message: 'Invalid token max supply.' });
     }
@@ -458,7 +459,7 @@ exports.postLaunchTrade = async (req, res, user, token, type, amount, account_ty
 
     triggerTradeNotification(user, token, type, amount);
 
-    return res.status(200).json({ status: 201, message: 'Trade created successfully.', data: newTrade });
+    return res.status(200).json({ status: 201, message: 'Trade created successfully.', data: newTrade,token });
 };
 //call from blockchain
 const processBuy = async (req, res, token, amount, account_type) => {
