@@ -1,1 +1,44 @@
+name: CICD
 
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+
+      - name: Login to docker hub
+        run: |
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DEOCKER_USER_NAME }}" --password-stdin
+
+      - name: Build docker image
+        run: |
+          docker buildx build --platform linux/amd64,linux/arm64 -t blockchain-department/guess-meme:latest .
+
+      - name: Publish image to docker hub
+        run: |
+          docker push blockchain-department/guess-meme:latest
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Login to docker hub (on deploy)
+        run: |
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DEOCKER_USER_NAME }}" --password-stdin
+
+      - name: Pull image from docker hub
+        run: |
+          docker pull blockchain-department/guess-meme:latest
+
+      - name: Delete old container
+        run: |
+          docker rm -f guess-meme-container || true
+
+      - name: Run docker container
+        run: |
+          docker run -d -p 5000:5000 --name guess-meme-container blockchain-department/guess-meme:latest
