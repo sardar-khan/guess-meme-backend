@@ -22,7 +22,11 @@ jobs:
       - name: Login to Docker Hub
         run: docker login -u ${{ secrets.DEOCKER_USER_NAME }} -p ${{ secrets.DOCKER_PASSWORD }}
 
-      # Step 4: Build and push the Docker image
+      # Step 4: Inject .env variables securely using GitHub secrets
+      - name: Set up Environment Variables
+        run: echo "${{ secrets.ENV_FILE }}" > .env
+
+      # Step 5: Build and push the Docker image
       - name: Build and Push Docker Image
         run: |
           docker buildx build \
@@ -49,23 +53,8 @@ jobs:
       # Step 4: Run the new Docker container
       - name: Run Docker Container
         run: |
-          docker run -d -p 5000:5000 --name nodejs-app-container \
-            -e MONGOURL=${{ secrets.MONGOURL }} \
-            -e TOKEN_KEY=${{ secrets.TOKEN_KEY }} \
-            -e SECRET=${{ secrets.SECRET }} \
-            -e PUSHER_APP_ID=${{ secrets.PUSHER_APP_ID }} \
-            -e PUSHER_KEY=${{ secrets.PUSHER_KEY }} \
-            -e PUSHER_SECRET=${{ secrets.PUSHER_SECRET }} \
-            -e PUSHER_CLUSTER=${{ secrets.PUSHER_CLUSTER }} \
-            -e REACT_APP_HELEIUS=${{ secrets.REACT_APP_HELEIUS }} \
-            -e INFURA_URL_TESTNET=${{ secrets.INFURA_URL_TESTNET }} \
-            -e WALLET_ADDRESS=${{ secrets.WALLET_ADDRESS }} \
-            -e WALLET_SECRET=${{ secrets.WALLET_SECRET }} \
-            -e CONTRACT_ADDRESS=${{ secrets.CONTRACT_ADDRESS }} \
-            -e USER_WALLET=${{ secrets.USER_WALLET }} \
-            -e TRON_CONTRACT_ADDRESS=${{ secrets.TRON_CONTRACT_ADDRESS }} \
-            -e TRON_SECRET=${{ secrets.TRON_SECRET }} \
-            -e TRON_RPC=${{ secrets.TRON_RPC }} \
-            -e TRON_USER_WALLET=${{ secrets.TRON_USER_WALLET }} \
-            -e HALF_MARK=${{ secrets.HALF_MARK }} \
+          docker run -d \
+            -p 5000:5000 \
+            --name nodejs-app-container \
+            --env-file .env \
             faisalriazawan/guess-meme:latest
