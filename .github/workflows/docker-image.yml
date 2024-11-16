@@ -18,15 +18,14 @@ jobs:
         with:
           driver: docker-container
 
-      # Step 3: Login to Docker Hub
+      # Step 3: Login to Docker Hub using secrets
       - name: Login to Docker Hub
-        run: docker login -u ${{ secrets.DEOCKER_USER_NAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+        env:
+          DOCKER_USERNAME: ${{ secrets.DEOCKER_USER_NAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
 
-      # Step 4: Inject .env variables securely using GitHub secrets
-      - name: Set up Environment Variables
-        run: echo "${{ secrets.ENV_FILE }}" > .env
-
-      # Step 5: Build and push the Docker image
+      # Step 4: Build and push the Docker image
       - name: Build and Push Docker Image
         run: |
           docker buildx build \
@@ -40,7 +39,10 @@ jobs:
     steps:
       # Step 1: Login to Docker Hub for deployment
       - name: Login to Docker Hub
-        run: docker login -u ${{ secrets.DEOCKER_USER_NAME }} -p ${{ secrets.DOCKER_PASSWORD }}
+        env:
+          DOCKER_USERNAME: ${{ secrets.DEOCKER_USER_NAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
 
       # Step 2: Pull the Docker image from Docker Hub
       - name: Pull Image from Docker Hub
@@ -56,5 +58,4 @@ jobs:
           docker run -d \
             -p 5000:5000 \
             --name nodejs-app-container \
-            --env-file .env \
             faisalriazawan/guess-meme:latest
