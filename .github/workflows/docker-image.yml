@@ -1,4 +1,4 @@
-name: Publish Docker Image
+name: CICD
 
 on:
   push:
@@ -8,6 +8,9 @@ on:
 jobs:
   push-docker-image:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     timeout-minutes: 30
     steps:
       # Step 1: Checkout the source code
@@ -19,7 +22,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v4
         with:
-          images: faisalriazawan/guess-meme # Update to your Docker Hub repository
+          images: faisalriazawan/guess-meme # Update to your Docker Hub image repository
           tags: |
             type=ref,event=branch
             type=sha
@@ -28,22 +31,22 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
 
-      # Step 4: Set up Docker Buildx
+      # Step 4: Set up Docker Buildx with buildkit driver for multi-platform support
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
         with:
-          driver: docker
+          driver: buildkit  # Use buildkit for multi-platform support
           install: true
           driver-opts: |
             image=moby/buildkit:v0.10.6
 
-      # Step 5: Login to Docker Hub using the PAT
+      # Step 5: Login to Docker Hub using your PAT
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
           registry: https://index.docker.io/v1/
-          username: faisalriazawan # Replace with your Docker Hub username
-          password: ${{ secrets.GHCR_PAT }}
+          username: faisalriazawan  # Docker Hub Username
+          password: ${{ secrets.GHCR_PAT }} # GitHub Secret for Docker Hub PAT
 
       # Step 6: Build and push the Docker image
       - name: Build and push
