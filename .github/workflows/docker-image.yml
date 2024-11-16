@@ -20,7 +20,7 @@ jobs:
 
       # Step 3: Login to GitHub Container Registry using GITHUB_TOKEN
       - name: Login to GitHub Container Registry
-        run: echo ${{ secrets.GHCR_PAT }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+        run: echo ${{ secrets.GHCR_PAT }} | docker login ghcr.io -u faisalriazawan --password-stdin
 
       # Step 4: Inject .env variables securely using GitHub secrets
       - name: Set up Environment Variables
