@@ -18,9 +18,9 @@ jobs:
         with:
           driver: docker-container
 
-      # Step 3: Login to Docker Hub
-      - name: Login to Docker Hub
-        run: echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DEOCKER_USER_NAME }} --password-stdin
+      # Step 3: Login to GitHub Container Registry using GITHUB_TOKEN
+      - name: Login to GitHub Container Registry
+        run: echo ${{ secrets.GHCR_PAT }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       # Step 4: Inject .env variables securely using GitHub secrets
       - name: Set up Environment Variables
@@ -33,7 +33,7 @@ jobs:
             --platform linux/amd64,linux/arm64 \
             --cache-from type=registry,ref=ghcr.io/faisalriazawan/guess-meme:cache \
             --cache-to type=registry,ref=ghcr.io/faisalriazawan/guess-meme:cache,mode=max \
-            -t faisalriazawan/guess-meme:latest \
+            -t ghcr.io/faisalriazawan/guess-meme:latest \
             --push .
 
   deploy:
@@ -42,11 +42,11 @@ jobs:
     steps:
       # Step 1: Login to Docker Hub for deployment
       - name: Login to Docker Hub
-        run: echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DEOCKER_USER_NAME }} --password-stdin
+        run: docker login -u ${{ secrets.DEOCKER_USER_NAME }} -p ${{ secrets.DOCKER_PASSWORD }}
 
-      # Step 2: Pull the latest Docker image from Docker Hub (using cache)
-      - name: Pull Image from Docker Hub
-        run: docker pull faisalriazawan/guess-meme:latest
+      # Step 2: Pull the latest Docker image from GitHub Container Registry
+      - name: Pull Image from GitHub Container Registry
+        run: docker pull ghcr.io/faisalriazawan/guess-meme:latest
 
       # Step 3: Delete the old container if it exists (simplified command)
       - name: Delete Old Container (if exists)
@@ -61,4 +61,4 @@ jobs:
             -p 5000:5000 \
             --name nodejs-app-container \
             --env-file .env \
-            faisalriazawan/guess-meme:latest
+            ghcr.io/faisalriazawan/guess-meme:latest
