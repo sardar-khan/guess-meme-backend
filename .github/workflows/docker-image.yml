@@ -1,62 +1,52 @@
-name: CICD
+name: Publish Docker Image
 
 on:
+  workflow_dispatch:
   push:
-    branches: ["main"]
+    branches:
+      - main
 
 jobs:
-  build:
+  push-docker-image:
     runs-on: ubuntu-latest
-    
+    permissions:
+      contents: read
+      packages: write
+    timeout-minutes: 30
     steps:
-      # Step 1: Checkout the source code from the GitHub repository
-      - name: Checkout source
+      - name: Checkout
         uses: actions/checkout@v3
-
-      # Step 2: Set up Docker Buildx with docker-container driver
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ghcr.io/blockchain-department/guess-meme # list of Docker images to use as base name for tags
+          tags: |
+            type=ref,event=branch
+            type=sha
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
         with:
-          driver: docker-container
-
-      # Step 3: Login to Docker Hub using secrets
-      - name: Login to Docker Hub
-        env:
-          DOCKER_USERNAME: ${{ secrets.DEOCKER_USER_NAME }}
-          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-        run: echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-
-      # Step 4: Build and push the Docker image
-      - name: Build and Push Docker Image
-        run: |
-          docker buildx build \
-            --platform linux/amd64,linux/arm64 \
-            -t faisalriazawan/guess-meme:latest \
-            --push .
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      # Step 1: Login to Docker Hub for deployment
-      - name: Login to Docker Hub
-        env:
-          DOCKER_USERNAME: ${{ secrets.DEOCKER_USER_NAME }}
-          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-        run: echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-
-      # Step 2: Pull the Docker image from Docker Hub
-      - name: Pull Image from Docker Hub
-        run: docker pull faisalriazawan/guess-meme:latest
-
-      # Step 3: Delete the old container if it exists
-      - name: Delete Old Container
-        run: docker rm -f nodejs-app-container || true
-
-      # Step 4: Run the new Docker container
-      - name: Run Docker Container
-        run: |
-          docker run -d \
-            -p 5000:5000 \
-            --name nodejs-app-container \
-            faisalriazawan/guess-meme:latest
+          driver: docker
+          install: true
+          driver-opts: |
+            image=moby/buildkit:v0.10.6
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # cache-from: type=local,src=/tmp/.buildx-cache
+          # cache-to: type=local,dest=/tmp/.buildx-cache

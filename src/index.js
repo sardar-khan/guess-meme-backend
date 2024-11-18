@@ -20,9 +20,7 @@ const path = require('path');
 const cors = require('cors');
 app.use(cors());
 const corsOptions = {
-    origin: "*",
-    credentials: true, //access-control-allow-credentials:true
-    optionSuccessStatus: 200,
+    origin: "*"
 };
 const pusher = require('./config/pusher')
 const CoinCreated = require('./models/coin_created'); // Adjust the path as needed
