@@ -22,6 +22,7 @@ exports.createThread = async (req, res) => {
         const threadId = generateId();
         const newThread = new Thread({
             text: text,
+            user_id: user.id,
             image: image,
             token_id: token_id,
             thread_id: threadId,
@@ -61,7 +62,10 @@ exports.getThreads = async (req, res) => {
 
         const threads = await Thread.find({ token_id })
             .skip((page - 1) * limit)
-            .limit(limit);
+            .limit(limit).populate({
+                path: 'user_id', // Reference to the User model
+                select: 'user_name profile_photo' // Fields to include
+            });
 
         res.status(200).json({
             status: 200,
