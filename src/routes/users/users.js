@@ -4,6 +4,7 @@ const auth = require("../../config/auth");
 const router = express.Router();
 const multer = require('multer');
 const { getTokenAddressAndCurveAddress, getTokenLargestAccounts, marketCapPolygon } = require('../../web3/test');
+const { getBondingCurve } = require('../../web3/tokens');
 const upload = multer({ storage: multer.memoryStorage() });
 //user registration
 router.post('/register', userController.addWallets);
@@ -18,7 +19,7 @@ router.post('/create-coin', auth, userController.createCoin);
 router.get('/view-coins', userController.viewCoin);
 router.get('/metadata/:coinId', userController.metadata)
 //tokens
-router.post('/view-token', userController.viewCoinAginstToken);
+router.post('/view-token', userController.viewCoinAginstId);
 //holders
 router.post('/top-holders', userController.topHolders);
 router.get('/user-profile', userController.viewUser);
@@ -26,7 +27,9 @@ router.get('/user-profile', userController.viewUser);
 router.get('/token-address', getTokenAddressAndCurveAddress);
 router.post('/market-cap', getTokenLargestAccounts);
 router.post('/polygon/market-cap', marketCapPolygon)
-
+router.get('/sol/marketcap', getTokenLargestAccounts)
+//router
+router.get("/get-bonding", getBondingCurve)
 //add coin reviews 
 router.post('/feedback', auth, userController.addReview)
 module.exports = router;

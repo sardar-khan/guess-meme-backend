@@ -2,12 +2,15 @@ const axios = require('axios')
 const CoinCreated = require("../models/coin_created");
 const web3 = require('@solana/web3.js');
 const anchor = require('@project-serum/anchor');
-const { AnchorProvider, Program } = require('@coral-xyz/anchor');
+const { AnchorProvider, Program, Wallet } = require('@coral-xyz/anchor');
 const idl = require('../web3/idl.json')
+const bs58 = require("bs58");
 const abi = require('../web3/abi.json');
 const { getBondingCurve, virtualTokenAmount } = require('./tokens');
+
+const { Keypair, Connection, PublicKey } = require("@solana/web3.js");
 exports.getTokenLargestAccounts = async (req, res) => {
-    const token_address = "35KyjBAG6AMDMkN55WvbZ2YUaPTMqU8gca3wc855HFnZ";
+    const token_address = "8bsS13GunLcPhzUji5PxJBDmx2usyn7p9UJcguahtumB";
     console.log(":token address", token_address)
     const url = process.env.REACT_APP_HELEIUS
     const headers = {
@@ -59,17 +62,23 @@ exports.getTokenLargestAccounts = async (req, res) => {
 
 const reteriveTokenInfo = async (taddress) => {
     // window.Buffer = buffer.Buffer
-    const programId = new web3.PublicKey(
-        'hp3TJUpe3y1KX9h3UYEpE4NgccMTt58fEN1VgxYDMNX',
-    )
-    const anchor = require('@project-serum/anchor');
-    const { Connection, clusterApiUrl } = require('@solana/web3.js');
+    const programId = new PublicKey(
+        "7jFsWYwonXMUWicDFkR7vfCudb8pm8feyzAi535DmsVh"
+    );
+    const RPC_URL = "https://api.devnet.solana.com";
+    const connection = new Connection(RPC_URL, "confirmed");
 
-    const connection = new Connection(clusterApiUrl('devnet'), 'confirmed');
-    const provider = new AnchorProvider(connection, '4Suo836P86rZ1n3ZMdCXn5R7YEerQg5D3s862WsdatJYdccPsPmEr1TYuqfsJqVrqF8HAbBdxbaYVqXfWCcgXeKo', 'confirmed');
+    const DEV_KEY = "4Suo836P86rZ1n3ZMdCXn5R7YEerQg5D3s862WsdatJYdccPsPmEr1TYuqfsJqVrqF8HAbBdxbaYVqXfWCcgXeKo";
+
+    const wallet = new Wallet(Keypair.fromSecretKey(bs58.default.decode(DEV_KEY)));
+
+    const provider = new AnchorProvider(connection, wallet, {
+        commitment: "confirmed",
+    });
+    const IDL1 = require("./solana/solIdl.json");
 
     //make public provider
-    const program = new Program(idl, programId, provider)
+    const program = new Program(IDL1, programId, provider);
     const tokenAddress = new web3.PublicKey(taddress)
     const [C] = web3.PublicKey.findProgramAddressSync(
         [Buffer.from('bonding-curve'), tokenAddress.toBuffer()],
@@ -116,15 +125,17 @@ const tokenAgainstSol = async (taddress, amount) => {
         console.log("params", taddress, amount)
 
         const tokenamt = tokenToSmallestUnit(parseInt(amount), 6)
-
+        console.log("token", tokenamt)
         // window.Buffer = buffer.Buffer
 
 
         const data = await reteriveTokenInfo(taddress)
         console.log("datra", data)
         //token price buy
-        const tokenPriceInLamport = parseFloat(tokenamt * parseFloat(data?.virtualSolReserves)) /
-            parseFloat(parseFloat(data?.virtualTokenReserves) - tokenamt)
+        const tokenss = parseFloat(tokenamt * parseFloat(data?.virtualSolReserves));
+        const divident = tokenamt - parseFloat(parseFloat(data?.virtualTokenReserves));
+        console.log("datra", tokenss, "divident", divident)
+        const tokenPriceInLamport = tokenss / divident;
         const tokenPriceInSol = convertScientificToDecimal(
             parseFloat(tokenPriceInLamport / 1000000000),
         )
@@ -234,9 +245,10 @@ exports.marketCapPolygon = async (req, res) => {
         const result = await getBondingCurve(token_address)
 
         console.log("result", result[2])
-        const total_tokens = 1000000000;
+        const bonding_curve = result[2];
+        const total_tokens = result[4];
 
-        const soldTokens = total_tokens - parseFloat(result[2]);
+        const soldTokens = total_tokens - bonding_curve;
         console.log("tokens from bc", soldTokens)
         // setBondingTokens(result?.result?.value[0]?.uiAmount);
         const res = await virtualTokenAmount()
