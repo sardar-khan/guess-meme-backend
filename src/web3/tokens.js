@@ -5,7 +5,7 @@ require('dotenv').config();
 
 const INFURA_URL_TESTNET = process.env.INFURA_URL_TESTNET;
 const WALLET_ADDRESS = process.env.WALLET_ADDRESS;
-const WALLET_SECRET = process.env.WALLET_SECRET;
+const WALLET_SECRET = process.env.WALLET_SECRET.toString();
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
 
 const provider = new ethers.JsonRpcProvider(INFURA_URL_TESTNET); // Amoy testnet
