@@ -4,6 +4,7 @@ const Schema = mongoose.Schema;
 const ThreadSchema = new Schema({
     token_id: { type: Schema.Types.ObjectId, ref: 'coin_created', required: true },
     text: { type: String, required: true },
+    user_id: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     thread_id: { type: String, required: true, unique: true },
     reply_id: { type: String, default: null },
     image: {
