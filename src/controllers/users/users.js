@@ -7,7 +7,7 @@ const Trade = require("../../models/trades");
 const Thread = require("../../models/threads");
 const pusher = require('../../config/pusher');
 const axios = require('axios');
-const sharp = require('sharp');
+// const sharp = require('sharp');
 
 exports.addWallets = async (req, res) => {
     const { address, blockchain } = req.body;
