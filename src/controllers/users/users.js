@@ -7,7 +7,7 @@ const Trade = require("../../models/trades");
 const Thread = require("../../models/threads");
 const pusher = require('../../config/pusher');
 const axios = require('axios');
-const sharp = require('sharp');
+// const sharp = require('sharp');
 
 exports.addWallets = async (req, res) => {
     const { address, blockchain } = req.body;
@@ -262,7 +262,7 @@ exports.createCoin = async (req, res) => {
                 telegram_link,
                 website,
                 token_address: null,
-                max_supply: amount,
+                max_supply: 0,
                 max_buy_percentage,
                 bonding_curve,
                 metadata: {
@@ -377,7 +377,7 @@ exports.viewCoin = async (req, res) => {
                         status: coin?.status,
                         creator: coin.creator
                     },
-
+                    status: coin.status,
 
                     threadsCount: threadsCount,
                     latestThread: latestThread || null
@@ -430,10 +430,10 @@ exports.viewCoin = async (req, res) => {
 
 
 //view the token against the token _address
-exports.viewCoinAginstToken = async (req, res) => {
+exports.viewCoinAginstId = async (req, res) => {
     try {
-        const { token_address } = req.body;
-        const token = await coins_created.findOne({ token_address }).populate('creator', 'user_name profile_photo')
+        const { id } = req.params;
+        const token = await coins_created.findOne({ coinId: id }).populate('creator', 'user_name profile_photo')
         return res.status(200).json({
             status: 200,
             message: 'Token fetched successfully.',
@@ -492,7 +492,7 @@ exports.viewUser = async (req, res) => {
         const user = await User.findById(user_id)
             .populate({
                 path: 'coins_created',
-                select: 'name image token_address'
+                select: 'name image token_address description market_cap ticker time'
             });
         if (!user) {
             return res.status(404).json({ status: 404, message: 'User not found.' });
@@ -503,11 +503,16 @@ exports.viewUser = async (req, res) => {
         const coinsHeldDetails = await Promise.all(user.coins_held.map(async (coin) => {
             const coinDetails = await coins_created.findById(coin.coinId);
             if (coinDetails) {
+                console.log(coinDetails.time, 'time')
                 return {
                     coinId: coin.coinId,
                     name: coinDetails.name,
                     image: coinDetails.image,
-                    token_address: coinDetails.token_address
+                    token_address: coinDetails.token_address,
+                    description: coinDetails.description,
+                    market_cap: coinDetails.market_cap,
+                    ticker: coinDetails.ticker,
+                    time: coinDetails.time
                 };
             } else {
                 console.error(`Coin with ID ${coin.coinId} not found.`);

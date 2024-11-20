@@ -5,16 +5,15 @@ require('dotenv').config();
 
 const INFURA_URL_TESTNET = process.env.INFURA_URL_TESTNET;
 const WALLET_ADDRESS = process.env.WALLET_ADDRESS;
-const WALLET_SECRET = process.env.WALLET_SECRET;
+const WALLET_SECRET = process.env.WALLET_SECRET.toString();
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
 
 const provider = new ethers.JsonRpcProvider(INFURA_URL_TESTNET); // Amoy testnet
 const signer = new ethers.Wallet(WALLET_SECRET, provider);
 const factoryContract = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
-async function getBondingCurve() {
+async function getBondingCurve(address) {
     console.log("call")
     try {
-        let address = '0x76148Cd0a2e51C54B2950a23Dd18aFDF98239e4F';
         const result = await factoryContract.bondingCurve(address);
         console.log('Bonding Curve:', result[2]);
         return result;
@@ -40,17 +39,14 @@ async function virtualTokenAmount() {
 // const totalSupply = ethers.parseUnits('1000000000', 18) //total supply
 const deployTokenOnBlockchain = async (tokenData) => {
     console.log("token_data", tokenData);
-    let { name, symbol, totalSupply } = tokenData;
+    let { name, symbol } = tokenData;
 
     try {
+        const totalSupply = ethers.parseUnits('1000000000', 18) //total supply
         console.log(`Deploying token: ${name} (${symbol}), Total Supply: ${totalSupply}`);
         name = name.toString();
         symbol = symbol.toString();
-        totalSupply = totalSupply.toString();
-        // const gasfee = provider.estimateGas();
-        // console.log("totalSupply", totalSupply, "symbol", symbol, "name", name, "gas fee", gasfee);
-        const totalSupplyInWei = ethers.parseUnits(totalSupply.toString(), 18); // Ensure correct unit
-        const tx = await factoryContract.createToken(WALLET_ADDRESS, name, symbol, totalSupplyInWei, 100);
+        const tx = await factoryContract.createToken(WALLET_ADDRESS, name, symbol, totalSupply, 100);
         await tx.wait();
         console.log("tx", tx)
 

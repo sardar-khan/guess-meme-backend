@@ -5,7 +5,7 @@ const HttpProvider = TronWeb.providers.HttpProvider;
 
 const INFURA_URL_TESTNET = process.env.TRON_RPC;
 const WALLET_ADDRESS = process.env.TRON_USER_WALLET;
-const WALLET_SECRET = process.env.TRON_SECRET;
+const WALLET_SECRET = process.env.TRON_SECRET.toString();
 const CONTRACT_ADDRESS = process.env.TRON_CONTRACT_ADDRESS;
 
 const tronWeb = new TronWeb({
