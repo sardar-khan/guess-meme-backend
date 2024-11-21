@@ -432,8 +432,9 @@ exports.viewCoin = async (req, res) => {
 //view the token against the token _address
 exports.viewCoinAginstId = async (req, res) => {
     try {
-        const { id } = req.params;
-        const token = await coins_created.findOne({ coinId: id }).populate('creator', 'user_name profile_photo')
+        const { token_id } = req.params;
+        console.log("token_id", token_id)
+        const token = await coins_created.findById(token_id).populate('creator', 'user_name profile_photo')
         return res.status(200).json({
             status: 200,
             message: 'Token fetched successfully.',
