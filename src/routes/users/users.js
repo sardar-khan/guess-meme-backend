@@ -19,7 +19,7 @@ router.post('/create-coin', auth, userController.createCoin);
 router.get('/view-coins', userController.viewCoin);
 router.get('/metadata/:coinId', userController.metadata)
 //tokens
-router.post('/view-token', userController.viewCoinAginstId);
+router.post('/view-token/:token_id', userController.viewCoinAginstId);
 //holders
 router.post('/top-holders', userController.topHolders);
 router.get('/user-profile', userController.viewUser);
