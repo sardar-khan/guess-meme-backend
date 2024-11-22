@@ -357,9 +357,12 @@ exports.viewCoin = async (req, res) => {
         }
         // Fetch additional details (market cap, thread count, and latest thread)
         const coinsWithDetails = await Promise.all(filteredCoins.map(async (coin) => {
-            console.log("coin time", coin.timer);
+            if (!coin.creator) {
+                console.error('Missing creator for coin:', coin._id);
+                return null; // Skip coins without valid creators
+            }
 
-            let trust_score = await calculateTrustScore(coin.creator._id);
+            let trust_score = await calculateTrustScore(coin.creator.id);
             const soldAmount = await Trade.aggregate([
                 { $match: { token_id: coin._id, type: 'sell' } },
                 { $group: { _id: null, totalSold: { $sum: "$amount" } } }
