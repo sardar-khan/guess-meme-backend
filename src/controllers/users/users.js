@@ -317,14 +317,16 @@ exports.viewCoin = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 1000;
     const sortBy = req.query.sortBy || 'createdAt';
-    const order = req.query.order === 'asc' ? 1 : -1; // Default order is descending
+    const order = req.query.order === 'asc' ? 1 : -1;
+    const type = req.query.type;
+
     // Define sorting options
     const sortOptions = {
         market_cap: { market_cap: order },
         reply_count: { threadsCount: order },
         last_reply: { 'latestThread.createdAt': order },
-        creation_time: { time: order }, // Changed to sort by `time`
-        default: { time: -1 } // Default sort by `time` descending
+        creation_time: { time: order },
+        default: { time: -1 }
     };
 
     // Determine sort field
@@ -338,12 +340,25 @@ exports.viewCoin = async (req, res) => {
         }
 
         // Fetch filtered coin data
-        const filteredCoins = await coins_created.find(filter)
-            .populate('creator', 'user_name profile_photo ');
+        const filteredCoins = await coins_created.find().populate({
+            path: 'creator',
+            select: 'user_name profile_photo wallet_address',
+            match: type ? { 'wallet_address.blockchain': type } : {}  // Match the blockchain in the wallet_address array
+        })
+        // Filter coins with a creator
+        const coins = filteredCoins.filter((coin) => coin.creator);
 
+        // If no coins match the type, respond with an error
+        if (type && coins.length === 0) {
+            return res.status(404).json({
+                status: 404,
+                message: `Coin with type "${type}" doesn't exist.`
+            });
+        }
         // Fetch additional details (market cap, thread count, and latest thread)
         const coinsWithDetails = await Promise.all(filteredCoins.map(async (coin) => {
-            console.log("coin time", coin.timer)
+            console.log("coin time", coin.timer);
+
             let trust_score = await calculateTrustScore(coin.creator._id);
             const soldAmount = await Trade.aggregate([
                 { $match: { token_id: coin._id, type: 'sell' } },
@@ -351,14 +366,13 @@ exports.viewCoin = async (req, res) => {
             ]);
 
             const threadsCount = await Thread.countDocuments({ token_id: coin._id });
-
             const latestThread = await Thread.findOne({ token_id: coin._id })
                 .sort({ createdAt: -1 });
             const now = new Date();
-            // const formattedDate = now.toISOString();
-            if (coin.timer < now) {
-                console.log("showw all")
 
+            // Check timer to determine the coin's visibility
+            if (coin.timer < now) {
+                console.log("show all");
                 return {
                     coin,
                     market_cap: soldAmount.length ? soldAmount[0].totalSold : 0,
@@ -378,13 +392,14 @@ exports.viewCoin = async (req, res) => {
                         creator: coin.creator
                     },
                     status: coin.status,
-
                     threadsCount: threadsCount,
                     latestThread: latestThread || null
                 };
             }
         }));
-        console.log("coinsWithDetails", coinsWithDetails)
+
+        console.log("coinsWithDetails", coinsWithDetails); // For debugging
+
         // Apply sorting
         if (sortBy !== 'createdAt') {
             coinsWithDetails.sort((a, b) => {
@@ -413,7 +428,9 @@ exports.viewCoin = async (req, res) => {
         if (!paginatedCoins.length) {
             return res.status(404).json({ message: 'No coins found.' });
         }
-        console.log("paginatedCoins", paginatedCoins)
+
+        console.log("paginatedCoins", paginatedCoins); // For debugging
+
         // Respond with paginated and sorted coin data
         return res.status(200).json({
             status: 200,
@@ -427,6 +444,7 @@ exports.viewCoin = async (req, res) => {
         return res.status(500).json({ status: 500, error: error.message });
     }
 };
+
 
 
 //view the token against the token _address
