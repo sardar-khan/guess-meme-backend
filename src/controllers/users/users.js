@@ -356,10 +356,11 @@ exports.viewCoin = async (req, res) => {
             });
         }
         // Fetch additional details (market cap, thread count, and latest thread)
-        const coinsWithDetails = await Promise.all(filteredCoins.map(async (coin) => {
+        const coinsWithDetails = await Promise.all(coins.map(async (coin) => {
+            console.log("coin time", coin.creator);
             if (!coin.creator) {
-                console.error('Missing creator for coin:', coin._id);
-                return null; // Skip coins without valid creators
+                console.error('Creator is null for coin:', coin);
+                return null
             }
 
             let trust_score = await calculateTrustScore(coin.creator.id);
