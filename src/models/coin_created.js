@@ -14,7 +14,7 @@ const CoinCreatedSchema = new Schema({
     market_cap: { type: Number, default: 0 },
     website: { type: String, default: '' },
     token_address: { type: String },
-    max_supply: { type: Number, },
+    max_supply: { type: Number },
     max_buy_percentage: { type: Number },
     bonding_curve: { type: String },
     bonding_curve_progress: { type: Number, default: 0 }, // In percentage

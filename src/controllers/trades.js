@@ -501,7 +501,7 @@ exports.postLaunchTrade = async (req, res, user, token, type, amount, account_ty
 
     triggerTradeNotification(user, token, type, amount);
 
-    return res.status(200).json({ status: 201, message: 'Trade created successfully.', data: newTrade });
+    return res.status(200).json({ status: 201, message: 'Trade created successfully.', data: newTrade,token });
 };
 //call from blockchain
 const processBuy = async (req, res, token, amount, account_type) => {
