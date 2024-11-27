@@ -46,6 +46,8 @@ app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 const notificationRoutes = require('./routes/notification');
 const { deployOnTron, buyOnTron } = require('./web3/tron/tronTrades');
 const { getTokenLargestAccounts } = require('./web3/test');
+const Trade = require('./models/trades');
+const { createReadStream } = require('fs');
 
 // Use routes
 app.use('/notifications', notificationRoutes);
@@ -106,10 +108,12 @@ async function deployToken(coin, type) {
 }
 
 // Helper function to handle buyer requests
-async function processBuyRequests(coin, type) {
+async function processBuyRequests(coin, type, creator) {
+    console.log("Here2")
     const requests = await buyers_requests.find({ token_id: coin._id, status: 'pending' });
     if (!requests.length) return;
-
+    let supply = coin.max_supply;
+    console.log("type", requests, type, "supply", supply)
     for (const req of requests) {
         try {
             let buyTxHash;
@@ -117,7 +121,7 @@ async function processBuyRequests(coin, type) {
 
                 buyTxHash = await buyTokensOnBlockchain(coin.token_address, req.amount);
             } else if (type === 'solana') {
-                const userAta = await initializeUserATA(wallet.payer, coin.wallet_address, mintaddy);
+                const userAta = await initializeUserATA(wallet.payer, coin.token_address, mintaddy);
                 buyTxHash = await buyWithAddress(userAta);
             } else if (type === 'tron') {
                 buyTxHash = await buyOnTron(coin.token_address, req.amount)
@@ -144,6 +148,31 @@ async function processBuyRequests(coin, type) {
 
             // Save the updated coin information
             await coin.save();
+            const newTrade = new Trade({
+                account: creator.id,
+                token_id: coin._id,
+                type: 'buy',
+                amount: req.amount,
+                token_amount: req.amount,
+                account_type: type,
+                transaction_hash: req.transaction_hash
+            });
+            await newTrade.save();
+            const coinIndex = req.coins_held.findIndex(coin => coin.coinId.toString() === coin._id.toString());
+            if (coinIndex > -1) {
+                // Update amount for existing holding
+                if (type === 'buy') {
+                    req.coins_held[coinIndex].amount += parseFloat(amount);
+                } else if (type === 'sell') {
+                    req.coins_held[coinIndex].amount = Math.max(0, req.coins_held[coinIndex].amount - parseFloat(amount));
+                }
+            } else {
+                // Add new coin holding
+                req.coins_held.push({ coinId: coin._id, amount: type === 'buy' ? parseFloat(amount) : 0 });
+            }
+            console.log("userr", req);
+            await req.save();
+
         } catch (error) {
             console.error(`Failed to process buy request for user ${req.user_id}`, error);
         }
@@ -170,7 +199,7 @@ async function checkHiddenCoins() {
     // Deploy expired hidden coins
     const expiredCoins = await CoinCreated.find({ coin_status: false, timer: { $lte: now } });
     for (const coin of expiredCoins) {
-
+        console.log("iam het me")
         const creator = await User.findById(coin.creator);
         const type = creator.wallet_address?.[0]?.blockchain;
         const deploymentRequest = await CoinDeploymentRequest.findOne({ coin_id: coin._id });
@@ -189,8 +218,8 @@ async function checkHiddenCoins() {
 
             deploymentRequest.status = 'approved';
             await deploymentRequest.save();
-
-            await processBuyRequests(coin, type);
+            console.log("here", creator)
+            await processBuyRequests(coin, type, creator)
         } catch (error) {
             console.error(`Failed to deploy token for ${coin.name}`, error);
         }
@@ -206,4 +235,4 @@ app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
 
-getTokenLargestAccounts()
+getTokenLargestAccounts("644geQ6qRJYoDUCvKFaUTnufYM7ph7GtMaQoSEgGusqX")

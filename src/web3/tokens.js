@@ -65,16 +65,6 @@ async function buyTokensOnBlockchain(tokenAddress, amount) {
         const fee = await factoryContract.calculateBuyFee(tokenAddress, amount);
         const ethToPay = payableAmount + fee;
         console.log("Total ETH to pay:", ethers.formatEther(ethToPay));
-        // Calculate the total cost, including gas fee estimate
-        // const gasPrice = await provider.getGasPrice();
-        // const gasLimit = await factoryContract.estimateGas.buyTokens(tokenAddress, amount);
-        // const totalCost = ethToPay + gasPrice.mul(gasLimit);
-
-        // // Check if the wallet balance is sufficient
-        // const walletBalance = await provider.getBalance();
-        // if (walletBalance.lt(totalCost)) {
-        //     throw new Error("Insufficient funds to cover transaction cost");
-        // }
         const tx = await factoryContract.buyTokens(tokenAddress, amount, {
             value: ethToPay,
         });

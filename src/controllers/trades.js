@@ -9,7 +9,7 @@ const { buyWithAddress, initializeUserATA } = require("../web3/solana/buyTokens"
 const { buyOnTron } = require("../web3/tron/tronTrades");
 const { mintaddy, wallet } = require('../web3/solana/config');
 exports.createTrade = async (req, res) => {
-    const { token_id, type, amount, account_type, token_amount } = req.body;
+    const { token_id, type, amount, account_type, token_amount, transaction_hash } = req.body;
     const account = req.user.address;
 
     try {
@@ -24,8 +24,9 @@ exports.createTrade = async (req, res) => {
         if (token.coin_status === false) {
             return this.preLaunchTrade(req, res, user, token, type, amount, token_amount);
         } else {
-            console.log("here");
-            return this.postLaunchTrade(req, res, user, token, type, amount, account_type);
+            console.log("here", token, type);
+
+            return this.postLaunchTrade(req, res, user, token, type, amount, account_type, transaction_hash);
         }
     } catch (error) {
         console.error(error);
@@ -104,31 +105,73 @@ exports.getBondingCurveProgress = async (req, res) => {
 //get the coin of hill
 exports.getKingOfTheHill = async (req, res) => {
     try {
-        const kingOfTheHill = await CoinCreated.findOne({ 'is_king_of_the_hill.value': true })
-            .sort({ 'is_king_of_the_hill.time': -1 });;
+        const { type } = req.params; // Extract the type (solana or ethereum) from the route parameter
 
-        if (!kingOfTheHill) {
-            return res.status(404).json({ message: 'No King of the Hill found.' });
+        // Validate type
+        if (!type || !['solana', 'ethereum'].includes(type)) {
+            return res.status(400).json({
+                status: 400,
+                message: "Invalid type. Please use 'solana' or 'ethereum'."
+            });
         }
-        const user_data = await User.findById(kingOfTheHill.creator)
+
+        // Aggregate query to join CoinCreated with User and filter by blockchain type
+        const kingOfTheHill = await CoinCreated.aggregate([
+            {
+                $lookup: {
+                    from: "users", // Name of the User collection
+                    localField: "creator", // Field in CoinCreated that references User
+                    foreignField: "_id", // Field in User that matches
+                    as: "creatorDetails"
+                }
+            },
+            {
+                $unwind: "$creatorDetails" // Unwind the array of matched User documents
+            },
+            {
+                $match: {
+                    "is_king_of_the_hill.value": true,
+                    "creatorDetails.wallet_address.0.blockchain": type // Match blockchain type
+                }
+            },
+            {
+                $sort: { "is_king_of_the_hill.time": -1 } // Sort by time descending
+            },
+            {
+                $limit: 1 // Get the latest King of the Hill
+            }
+        ]);
+
+        if (!kingOfTheHill || kingOfTheHill.length === 0) {
+            return res.status(404).json({
+                status: 404,
+                message: `No King of the Hill found for ${type}.`
+            });
+        }
+
+        // Extract the first King of the Hill document
+        const king = kingOfTheHill[0];
+        const user = king.creatorDetails;
 
         return res.status(200).json({
             status: 200,
-            message: 'King of the Hill fetched successfully.',
+            message: `King of the Hill for ${type} fetched successfully.`,
             data: {
-                kingOfTheHill,
-                user_profile: user_data.profile_photo,
-                user_name: user_data.user_name,
-                user_id: user_data._id
+                kingOfTheHill: king,
+                user_profile: user.profile_photo,
+                user_name: user.user_name,
+                user_id: user._id
             }
-
         });
     } catch (error) {
-        console.error(error);
-        return res.status(500).json({ status: 500, error: error.message });
+        console.error("Error fetching King of the Hill:", error);
+        return res.status(500).json({
+            status: 500,
+            message: "Error fetching King of the Hill.",
+            error: error.message
+        });
     }
 };
-
 
 //graph data 
 exports.getGraphData = async (req, res) => {
@@ -408,41 +451,38 @@ exports.preLaunchTrade = async (req, res, user, token, type, amount, token_amoun
     }
 };
 //popst launch trade
-exports.postLaunchTrade = async (req, res, user, token, type, amount, account_type) => {
+exports.postLaunchTrade = async (req, res, user, token, type, amount, account_type, transaction_hash) => {
 
     let supply = token.max_supply;
-    console.log("supply", supply, token)
+    let token_address = token?.token_address;
+    console.log("supply", supply, token?.token_address)
     if (isNaN(supply)) {
         return res.status(400).json({ message: 'Invalid token max supply.' });
     }
 
-    const newTrade = new Trade({
-        account: user._id,
-        token_id: token._id,
-        type,
-        amount,
-        token_amount: req.body.token_amount,
-        account_type,
-        transaction_hash: null
-    });
-    let result
-    await newTrade.save();
+
+    const token_cap = await getTokenLargestAccounts(token_address);
+    const marketCap = token_cap.market_cap;
     if (type === 'buy') {
-        console.log("her3")
-        result = await processBuy(req, res, token, amount, account_type);
-        console.log("transactionHash", result.transactionHash)
-        token.max_supply = supply + parseFloat(amount);
+        console.log("buy")
+        supply += parseFloat(amount);
+        console.log("after buy", supply);
+        token.market_cap = marketCap;
     } else if (type === 'sell') {
         token.max_supply = supply - parseFloat(amount);
         if (token.max_supply <= 0) {
             token.max_supply = 0;
         }
     }
-
-    // token.market_cap = await updateMarketCap(token, account_type);
-    console.log("transactionHash", result.transactionHash)
-    newTrade.transaction_hash = result.transactionHash;
-    await newTrade.save();
+    const newTrade = new Trade({
+        account: user._id,
+        token_id: token._id,
+        type,
+        amount,
+        token_amount: req.body.amount,
+        account_type,
+        transaction_hash: transaction_hash
+    });
     if (token.max_supply >= parseFloat(process.env.HALF_MARK)) {
         console.log("after threshold", supply);
 
@@ -453,6 +493,7 @@ exports.postLaunchTrade = async (req, res, user, token, type, amount, account_ty
     } else {
         token.is_king_of_the_hill.value = false;
     }
+    await newTrade.save();
     await token.save();
 
 
@@ -530,7 +571,7 @@ const updateUserHoldings = async (user, token, type, amount) => {
         // Add new coin holding
         user.coins_held.push({ coinId: token._id, amount: type === 'buy' ? parseFloat(amount) : 0 });
     }
-
+    console.log("userr", user.coins_held);
     await user.save();
 };
 // Trigger trade notifications

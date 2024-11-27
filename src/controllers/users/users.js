@@ -608,12 +608,8 @@ exports.addReview = async (req, res) => {
         return res.status(200).json({ status: 500, error: error.message });
     }
 };
-
-
-const fs = require('fs');
-const path = require('path');
-const { createTrade, createBuyTrade } = require("../trades");
 const coin_deployment_request = require("../../models/coins_deploy_request");
+const { getTokenLargestAccounts } = require("../../web3/test");
 
 // Read the default image file
 
@@ -683,5 +679,67 @@ exports.metadata = async (req, res) => {
     } catch (error) {
         // Return a 500 status code for internal server errors
         return res.status(500).json({ message: error.message });
+    }
+};
+//top 3 coins
+exports.topThreeCoins = async (req, res) => {
+    try {
+        const { type } = req.params; // Get the account type (solana or ethereum) from the route parameter
+
+        if (!type || !['solana', 'ethereum'].includes(type)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid account type. Please use 'solana' or 'ethereum'."
+            });
+        }
+
+        const topCoins = await Trade.aggregate([
+            // Match transactions based on the account type from the parameter
+            {
+                $match: {
+                    account_type: type
+                }
+            },
+            // Group by token_id and sum up the amount for buy and sell transactions
+            {
+                $group: {
+                    _id: "$token_id", // Group by token_id (each coin)
+                    totalVolume: { $sum: "$amount" } // Sum the amount (transaction volume)
+                }
+            },
+            // Sort the results by totalVolume in descending order
+            {
+                $sort: { totalVolume: -1 }
+            },
+            // Limit the result to top 3 coins
+            { $limit: 3 }
+        ]);
+        // Fetch additional details for each token
+        const enrichedTopCoins = await Promise.all(
+            topCoins.map(async (coin) => {
+                const tokenDetails = await coins_created
+                    .findById(coin._id)
+                    .populate('creator', 'user_name profile_photo'); // Populate creator details
+                return {
+                    token_id: coin._id,
+                    totalVolume: coin.totalVolume,
+                    tokenDetails: tokenDetails || null // Add token details (or null if not found)
+                };
+            })
+        );
+
+        // Send the response with enriched token details
+        res.status(200).json({
+            success: true,
+            accountType: type,
+            topCoins: enrichedTopCoins
+        });
+    } catch (err) {
+        console.error("Error fetching top 3 coins:", err);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching top coins',
+            error: err.message
+        });
     }
 };

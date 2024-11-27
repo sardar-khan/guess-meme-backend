@@ -23,6 +23,8 @@ router.post('/view-token/:token_id', userController.viewCoinAginstId);
 //holders
 router.post('/top-holders', userController.topHolders);
 router.get('/user-profile', userController.viewUser);
+//top three coins
+router.get('/top-three-coins/:type', userController.topThreeCoins)
 
 router.get('/token-address', getTokenAddressAndCurveAddress);
 router.post('/market-cap', getTokenLargestAccounts);

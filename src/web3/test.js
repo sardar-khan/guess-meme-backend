@@ -9,8 +9,10 @@ const abi = require('../web3/abi.json');
 const { getBondingCurve, virtualTokenAmount } = require('./tokens');
 
 const { Keypair, Connection, PublicKey } = require("@solana/web3.js");
-exports.getTokenLargestAccounts = async (req, res) => {
-    const token_address = "8bsS13GunLcPhzUji5PxJBDmx2usyn7p9UJcguahtumB";
+const { programId, connection, wallet } = require('./solana/config');
+const { IDL } = require('@coral-xyz/anchor/dist/cjs/native/system');
+exports.getTokenLargestAccounts = async (token_address) => {
+    //const  = "8bsS13GunLcPhzUji5PxJBDmx2usyn7p9UJcguahtumB";
     console.log(":token address", token_address)
     const url = process.env.REACT_APP_HELEIUS
     const headers = {
@@ -62,15 +64,6 @@ exports.getTokenLargestAccounts = async (req, res) => {
 
 const reteriveTokenInfo = async (taddress) => {
     // window.Buffer = buffer.Buffer
-    const programId = new PublicKey(
-        "7jFsWYwonXMUWicDFkR7vfCudb8pm8feyzAi535DmsVh"
-    );
-    const RPC_URL = "https://api.devnet.solana.com";
-    const connection = new Connection(RPC_URL, "confirmed");
-
-    const DEV_KEY = "4Suo836P86rZ1n3ZMdCXn5R7YEerQg5D3s862WsdatJYdccPsPmEr1TYuqfsJqVrqF8HAbBdxbaYVqXfWCcgXeKo";
-
-    const wallet = new Wallet(Keypair.fromSecretKey(bs58.default.decode(DEV_KEY)));
 
     const provider = new AnchorProvider(connection, wallet, {
         commitment: "confirmed",
@@ -120,31 +113,28 @@ const reteriveTokenInfo = async (taddress) => {
 
 //token price in sol
 
-const tokenAgainstSol = async (taddress, amount) => {
+const tokenAgainstSol = async (taddress, tokenamt) => {
     try {
-        console.log("params", taddress, amount)
 
-        const tokenamt = tokenToSmallestUnit(parseInt(amount), 6)
-        console.log("token", tokenamt)
+        console.log("params", taddress, tokenamt)
+
+        // const tokenamt = tokenToSmallestUnit(parseInt(amount), 6)
+        // console.log("token", tokenamt)
         // window.Buffer = buffer.Buffer
 
 
         const data = await reteriveTokenInfo(taddress)
         console.log("datra", data)
         //token price buy
-        const tokenss = parseFloat(tokenamt * parseFloat(data?.virtualSolReserves));
-        const divident = tokenamt - parseFloat(parseFloat(data?.virtualTokenReserves));
-        console.log("datra", tokenss, "divident", divident)
-        const tokenPriceInLamport = tokenss / divident;
-        const tokenPriceInSol = convertScientificToDecimal(
-            parseFloat(tokenPriceInLamport / 1000000000),
-        )
+        const tokenPriceInLamport =
+            parseFloat(tokenamt * parseFloat(data?.virtualSolReserves)) /
+            parseFloat(parseFloat(data?.virtualTokenReserves) - tokenamt)
 
-        console.log("tokenPriceInSol", tokenPriceInSol, tokenPriceInLamport)
+        console.log("tokenPriceLamport", tokenPriceInLamport)
 
         return {
             //tokenInfo: data,
-            tokenPriceInSol: tokenPriceInSol,
+            tokenPriceInSol: tokenPriceInLamport,
 
 
             //solPer1Token:parseFloat(1/tokenAgainstSol)
