@@ -46,7 +46,14 @@ const deployTokenOnBlockchain = async (tokenData) => {
         console.log(`Deploying token: ${name} (${symbol}), Total Supply: ${totalSupply}`);
         name = name.toString();
         symbol = symbol.toString();
-        const tx = await factoryContract.createToken(WALLET_ADDRESS, name, symbol, totalSupply, 100);
+        const tx = await factoryContract.createToken(
+            WALLET_ADDRESS,
+            name,
+            symbol,
+            totalSupply,
+            100
+        );
+
         await tx.wait();
         console.log("tx", tx)
 
@@ -106,4 +113,60 @@ async function sellTokensOnBlockchain(tokenAddress, amount) {
     }
 }
 
-module.exports = { deployTokenOnBlockchain, virtualTokenAmount, buyTokensOnBlockchain, sellTokensOnBlockchain, getBondingCurve };
+// Transfer tokens with dynamic calculation based on Polygon's logic
+
+// Function to transfer ETH to admin (can be added if required)
+async function transferEthToAdmin(amountInEth) {
+    try {
+        const amountInWei = ethers.parseUnits(amountInEth.toString(), 'ether');
+
+        // Get current fee data (gas price and max fee)
+        const feeData = await provider.getFeeData();
+
+        // Use maxFeePerGas for gas price
+        const gasPrice = feeData.maxFeePerGas || feeData.gasPrice;  // If maxFeePerGas is available, use it; otherwise, fall back to gasPrice.
+        const gasLimit = 21000;  // Standard gas limit for a basic transfer
+
+        // Sending the transaction
+        const tx = await signer.sendTransaction({
+            to: '0xA22aea5f4736B44241612Dff8f4A22ff25dae65A', // Replace with actual admin address
+            value: amountInWei,
+            gasPrice: gasPrice,  // Use current gas price
+            gasLimit: gasLimit   // Set a reasonable gas limit
+        });
+
+        await tx.wait();
+        console.log(`Successfully sent ${amountInEth} ETH to Admin. Transaction Hash: ${tx.hash}`);
+        return { success: true, transactionHash: tx.hash };
+    } catch (error) {
+        console.error('Error sending ETH to admin:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+async function transferMatic() {
+    try {
+        // Check sender's balance (optional, for verification)
+        const senderBalance = await provider.getBalance('0xA22aea5f4736B44241612Dff8f4A22ff25dae65A');
+        console.log('Sender balance:', ethers.formatUnits(senderBalance, 18), 'MATIC');
+        const amountToSend = ethers.parseUnits('0.001', 18); // Sending 10 MATIC
+
+        // Send MATIC to the recipient
+        const tx = await signer.sendTransaction({
+            to: '0xA22aea5f4736B44241612Dff8f4A22ff25dae65A',
+            value: amountToSend,
+        });
+
+        console.log('Transaction sent. Waiting for confirmation...');
+
+        // Wait for transaction confirmation
+        const receipt = await tx.wait();
+        console.log('Transaction successful! Receipt:', receipt);
+    } catch (error) {
+        console.error('Error transferring MATIC:', error);
+    }
+}
+
+
+
+module.exports = { deployTokenOnBlockchain, transferMatic, transferEthToAdmin, virtualTokenAmount, buyTokensOnBlockchain, sellTokensOnBlockchain, getBondingCurve };

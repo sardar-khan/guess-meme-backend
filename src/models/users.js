@@ -44,6 +44,12 @@ const UserSchema = new Schema({
         type: Schema.Types.ObjectId,
         ref: 'coin_created'
     }],
+    followers: [{
+        type: Schema.Types.ObjectId,
+        ref: 'User'
+    }],
+    followers_count: { type: Number, default: 0 },
+    following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
 }, { timestamps: true });
 
 const User = mongoose.model('User', UserSchema);

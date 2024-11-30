@@ -3,6 +3,7 @@ const {
     PublicKey,
     Transaction,
     sendAndConfirmTransaction,
+    SystemProgram
 } = require("@solana/web3.js");
 const {
     connection,
@@ -191,5 +192,35 @@ async function buyWithAddress(address) {
     }
 }
 
+async function transferSol(sender, recipient, amountSol) {
+    try {
+        // Convert the amount in SOL to lamports (Solana's smallest unit, like wei for Ethereum)
+        const amountInLamports = amountSol * 1000000000;
 
-module.exports = { buyWithAddress, initializeUserATA }
+        // Create the transaction instruction
+        const transaction = new Transaction().add(
+            SystemProgram.transfer({
+                fromPubkey: sender.publicKey,
+                toPubkey: recipient,
+                lamports: amountInLamports,
+            })
+        );
+
+        // Send the transaction and get the signature
+        const signature = await connection.sendTransaction(transaction, [sender]);
+        console.log(`Transaction sent! Signature: ${signature}`);
+
+        // Confirm the transaction
+        const confirmation = await connection.confirmTransaction(signature, 'confirmed');
+        console.log('Transaction confirmed:', confirmation);
+
+        return { success: true, transactionHash: signature };
+    } catch (error) {
+        console.error('Error transferring SOL:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+
+
+module.exports = { buyWithAddress, initializeUserATA, transferSol }

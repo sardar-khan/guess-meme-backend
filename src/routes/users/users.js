@@ -25,7 +25,8 @@ router.post('/top-holders', userController.topHolders);
 router.get('/user-profile', userController.viewUser);
 //top three coins
 router.get('/top-three-coins/:type', userController.topThreeCoins)
-
+router.post('/follow', auth, userController.addFollowers);
+router.post('/unfollow', auth, userController.unfollow)
 router.get('/token-address', getTokenAddressAndCurveAddress);
 router.post('/market-cap', getTokenLargestAccounts);
 router.post('/polygon/market-cap', marketCapPolygon)

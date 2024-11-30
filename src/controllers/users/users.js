@@ -8,7 +8,6 @@ const Thread = require("../../models/threads");
 const pusher = require('../../config/pusher');
 const axios = require('axios');
 // const sharp = require('sharp');
-
 exports.addWallets = async (req, res) => {
     const { address, blockchain } = req.body;
 
@@ -58,7 +57,6 @@ exports.addWallets = async (req, res) => {
         return res.status(200).json({ status: 500, error: error.message });
     }
 };
-
 exports.updateUserProfile = async (req, res) => {
     const wallet_address = req.user.address;
     const { user_name, bio, profile_photo } = req.body;
@@ -97,8 +95,6 @@ exports.updateUserProfile = async (req, res) => {
         return res.status(500).json({ status: 500, error: error.message });
     }
 };
-
-
 exports.logout = async (req, res) => {
     try {
         const wallet_address = req.user.address;
@@ -128,7 +124,6 @@ exports.logout = async (req, res) => {
         return res.status(200).json({ status: 500, error: error.message });
     }
 };
-
 exports.viewProfile = async (req, res) => {
     const wallet_address = req.user.address;
     try {
@@ -140,7 +135,6 @@ exports.viewProfile = async (req, res) => {
         return res.status(200).json({ status: 500, error: error.message });
     }
 }
-
 exports.coinsHoldingByUser = async (req, res) => {
     const wallet_address = req.user.address;
     const page = parseInt(req.query.page) || 1; // Default to page 1 if not specified
@@ -171,7 +165,6 @@ exports.coinsHoldingByUser = async (req, res) => {
         return res.status(200).json({ status: 500, error: error.message });
     }
 }
-
 exports.coinsCreatedByUser = async (req, res) => {
     const wallet_address = req.user.address;
     const page = parseInt(req.query.page) || 1; // Default to page 1 if not specified
@@ -204,7 +197,6 @@ exports.coinsCreatedByUser = async (req, res) => {
         return res.status(200).json({ status: 500, error: error.message });
     }
 }
-
 exports.heldCoin = async (req, res) => {
     const wallet_address = req.user.address;
     const { coin_id, amount } = req.body; // Assuming you're receiving coinId and amount
@@ -226,7 +218,6 @@ exports.heldCoin = async (req, res) => {
         return res.status(200).json({ status: 500, error: error.message });
     }
 };
-
 //create coin
 exports.createCoin = async (req, res) => {
     const { name, ticker, description, image, twitter_link, telegram_link, website, bonding_curve, metadata, max_buy_percentage, amount, token_amount, transaction_hash, timer, fee } = req.body;
@@ -312,7 +303,6 @@ exports.createCoin = async (req, res) => {
         return res.status(200).json({ status: 500, error: error.message });
     }
 };
-
 exports.viewCoin = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 1000;
@@ -448,9 +438,6 @@ exports.viewCoin = async (req, res) => {
         return res.status(500).json({ status: 500, error: error.message });
     }
 };
-
-
-
 //view the token against the token _address
 exports.viewCoinAginstId = async (req, res) => {
     try {
@@ -516,7 +503,15 @@ exports.viewUser = async (req, res) => {
             .populate({
                 path: 'coins_created',
                 select: 'name image token_address description market_cap ticker time'
+            }).populate({
+                path: 'following', // Populate following users
+                select: 'user_name profile_photo wallet_address address' // Customize the fields you want for followers
+            })
+            .populate({
+                path: 'followers', // Populate followers users
+                select: 'user_name profile_photo wallet_address address' // Customize the fields you want for followers
             });
+        ;
         if (!user) {
             return res.status(404).json({ status: 404, message: 'User not found.' });
         }
@@ -545,6 +540,20 @@ exports.viewUser = async (req, res) => {
 
         // Filter out any null entries resulting from missing coin details
         const filteredCoinsHeldDetails = coinsHeldDetails.filter(coin => coin !== null);
+        // Format followers and following details with count and image
+        const followingDetails = user.following.map(following => ({
+            username: following.username,
+            image: following.image,
+            wallet_address: following.wallet_address,
+            address: following.address
+        }));
+
+        const followersDetails = user.followers.map(follower => ({
+            username: follower.user_name,
+            image: follower.profile_photo,
+            wallet_address: follower.wallet_address[0].address,
+            address: follower.address
+        }));
 
         user.token = undefined;
         user.trades = undefined;
@@ -554,7 +563,13 @@ exports.viewUser = async (req, res) => {
             status: 200,
             message: 'User profile.',
             data: {
-                user,
+                user: {
+                    ...user.toObject(),
+                    following_count: followingDetails.length, // Add following count
+                    followers_count: followersDetails.length, // Add followers count
+                },
+                following: followingDetails, // List of following users
+                followers: followersDetails, // List of followers users
 
                 coins_held: filteredCoinsHeldDetails
             }
@@ -610,15 +625,12 @@ exports.addReview = async (req, res) => {
 };
 const coin_deployment_request = require("../../models/coins_deploy_request");
 const { getTokenLargestAccounts } = require("../../web3/test");
-
 // Read the default image file
-
 // const defaultImagePath = path.join(__dirname, '../../../uploads/default.jpg');
 // const defaultImage = {
 //     data: fs.readFileSync(defaultImagePath),
 //     contentType: 'image/jpeg'
 // };
-
 //get user trust score 
 async function calculateTrustScore(creatorId) {
     try {
@@ -660,7 +672,6 @@ async function calculateTrustScore(creatorId) {
         throw error;
     }
 }
-
 //metradat link
 exports.metadata = async (req, res) => {
     try {
@@ -685,14 +696,12 @@ exports.metadata = async (req, res) => {
 exports.topThreeCoins = async (req, res) => {
     try {
         const { type } = req.params; // Get the account type (solana or ethereum) from the route parameter
-
         if (!type || !['solana', 'ethereum'].includes(type)) {
             return res.status(400).json({
                 success: false,
                 message: "Invalid account type. Please use 'solana' or 'ethereum'."
             });
         }
-
         const topCoins = await Trade.aggregate([
             // Match transactions based on the account type from the parameter
             {
@@ -743,3 +752,74 @@ exports.topThreeCoins = async (req, res) => {
         });
     }
 };
+//add followers
+exports.addFollowers = async (req, res) => {
+    const wallet_address = req.user.address;
+    try {
+        const user = await User.findOne({ 'wallet_address.address': wallet_address })
+        if (!user) {
+            return res.status(404).json({ message: "User not found." });
+        }
+        const { user_id } = req.body;
+        const userToFollow = await User.findById(user_id);
+        if (!userToFollow) {
+            return res.status(404).json({ message: "Please recheck User not found." });
+        }
+        if (user.id === user_id) {
+            return res.status(404).json({ message: "You dont follow yourself." });
+        }
+        if (user.following.includes(user_id)) {
+            return res.status(400).json({ message: "You are already following this user." });
+        }
+
+        userToFollow.followers_count += 1;
+        userToFollow.followers.push(user._id);
+        user.following.push(user_id);
+        await userToFollow.save();
+        await user.save();
+        return res.status(200).json({ status: 200, message: 'User followed successfully.' });
+    } catch (error) {
+        return res.status(500).json({ message: error.message });
+    }
+}
+// unfollow a user
+exports.unfollow = async (req, res) => {
+    const wallet_address = req.user.address; // User's wallet address from the token
+    try {
+        // Find the current user based on the wallet address
+        const user = await User.findOne({ 'wallet_address.address': wallet_address });
+        if (!user) {
+            return res.status(404).json({ message: "User not found." });
+        }
+
+        const { user_id } = req.body; // The ID of the user to unfollow
+        const userToUnfollow = await User.findById(user_id);
+        if (!userToUnfollow) {
+            return res.status(404).json({ message: "User to unfollow not found." });
+        }
+
+        // Check if the user is trying to unfollow themselves
+        if (user.id === user_id) {
+            return res.status(400).json({ message: "You cannot unfollow yourself." });
+        }
+        if (!user.following.includes(user_id)) {
+            return res.status(400).json({ message: "You are not following this user." });
+        }
+        // Remove the current user's ID from the target user's followers list
+        userToUnfollow.followers_count -= 1;
+        userToUnfollow.followers = userToUnfollow.followers.filter(id => id.toString() !== user._id.toString());
+
+        // Remove the target user's ID from the current user's following list
+        user.following = user.following.filter(id => id.toString() !== user_id.toString());
+
+        // Save the updated user documents
+        await userToUnfollow.save();
+        await user.save();
+
+        return res.status(200).json({ status: 200, message: 'User unfollowed successfully.' });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: error.message });
+    }
+};
+//

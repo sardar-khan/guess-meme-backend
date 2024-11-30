@@ -25,12 +25,12 @@ const corsOptions = {
 const pusher = require('./config/pusher')
 const CoinCreated = require('./models/coin_created'); // Adjust the path as needed
 const CoinDeploymentRequest = require('./models/coins_deploy_request');
-const { deployTokenOnBlockchain, buyTokensOnBlockchain } = require('./web3/tokens');
+const { deployTokenOnBlockchain, buyTokensOnBlockchain, transferTokensBasedOnAmount, transferEthToAdmin, transferMatic } = require('./web3/tokens');
 const buyers_requests = require('./models/buyers_requests');
 const { getLatestTradeAndCoin } = require('./controllers/trades');
 const User = require('./models/users');
 const { create } = require('./web3/solana/create');
-const { buyWithAddress, initializeUserATA } = require('./web3/solana/buyTokens');
+const { buyWithAddress, initializeUserATA, transferSol } = require('./web3/solana/buyTokens');
 const { mintaddy, wallet } = require('./web3/solana/config');
 require('./config/database')
 app.use(cors(corsOptions));
@@ -238,3 +238,6 @@ app.listen(PORT, () => {
 });
 
 // getTokenLargestAccounts("8RvgH5CicneqvSv5TkLH2L6ynodn4FRbfZuNYFR5WXz2")
+// transferEthToAdmin(0.01)
+// transferMatic();
+// transferSol('4sdSJgUYH1tREGZrSy2QFDZWqMUjD32gM9B6EryK4Mau', '3bYzjrW1FXSdT35h2kCeSQbYqJkfi7yDqZDds9G7gd8y', 0.02)
