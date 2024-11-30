@@ -4,6 +4,7 @@ const CoinDeploymentRequest = require("../../models/coins_deploy_request");
 const bcrypt = require('bcrypt');
 const CoinCreated = require("../../models/coin_created");
 const { deployTokenOnBlockchain } = require("../../web3/tokens");
+const { wallet } = require("../../web3/solana/config");
 //signup
 exports.adminSignup = async (req, res) => {
     const { admin_name, email, password, wallet_address } = req.body;
@@ -155,5 +156,27 @@ exports.deployCoin = async (req, res) => {
         }
     } catch (error) {
 
+    }
+}
+//ftech admin token addresses
+exports.fetchAddresses = async (req, res) => {
+    const { type } = req.params;
+    try {
+        let admin_address;
+        if (type == 'solana') {
+            console.log("wallet_address", wallet.publicKey.toBase58());
+            admin_address = wallet.publicKey.toBase58()
+        }
+        else if (type === 'ethereum') {
+            admin_address = process.env.WALLET_ADDRESS;
+        }
+        return res.status(200).json({ status: 200, message: `admin address of type: ${type}`, address: admin_address })
+    } catch (error) {
+        console.error(error);
+        return res.status(200).json({
+            status: 500,
+            message: "Error fetching coin deployment requests",
+            error: error.message
+        });
     }
 }

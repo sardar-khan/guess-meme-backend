@@ -106,7 +106,7 @@ exports.getBondingCurveProgress = async (req, res) => {
 exports.getKingOfTheHill = async (req, res) => {
     try {
         const { type } = req.params; // Extract the type (solana or ethereum) from the route parameter
-
+        console.log("type", type)
         // Validate type
         if (!type || !['solana', 'ethereum'].includes(type)) {
             return res.status(400).json({
@@ -134,14 +134,17 @@ exports.getKingOfTheHill = async (req, res) => {
                     "creatorDetails.wallet_address.0.blockchain": type // Match blockchain type
                 }
             },
+
             {
                 $sort: { "is_king_of_the_hill.time": -1 } // Sort by time descending
             },
             {
                 $limit: 1 // Get the latest King of the Hill
             }
+
         ]);
 
+        console.log('kingOfTheHill', kingOfTheHill)
         if (!kingOfTheHill || kingOfTheHill.length === 0) {
             return res.status(404).json({
                 status: 404,
@@ -181,16 +184,12 @@ exports.getGraphData = async (req, res) => {
         if (!token_id) {
             return res.status(400).json({ error: 'token_id is required' });
         }
-
-
         // Get the current date and the start of the year
         const now = new Date();
         const startOfYear = new Date(now.getFullYear(), 0, 1);
-
         // Query trades within the specified date range
         const trades = await Trade.find({
             token_id: token_id,
-
             created_at: { $gte: startOfYear, $lte: now }
         }).sort({ created_at: 1 });
 
@@ -236,9 +235,6 @@ exports.getGraphData = async (req, res) => {
         return res.status(500).json({ status: 500, error: error.message });
     }
 };
-
-
-
 //get the  king of hill progress
 exports.getKingOfTheHillPercentage = async (req, res) => {
     try {
@@ -331,8 +327,6 @@ exports.getLatestTradeAndCoin = async (req, res) => {
         return res.status(200).json({ status: 500, error: error.message });
     }
 };
-
-
 //buy trade
 exports.createBuyTrade = async (res, token_id, type, amount, account_type, token_amount, transaction_hash, account) => {
     try {
@@ -427,11 +421,6 @@ exports.createBuyTrade = async (res, token_id, type, amount, account_type, token
         return { error: true, message: error.message };
     }
 };
-
-
-
-
-
 //pre launch trdae
 exports.preLaunchTrade = async (req, res, user, token, type, amount, token_amount) => {
     if (type === 'buy' && token.timer > Date.now()) {
@@ -501,7 +490,7 @@ exports.postLaunchTrade = async (req, res, user, token, type, amount, account_ty
 
     triggerTradeNotification(user, token, type, amount);
 
-    return res.status(200).json({ status: 201, message: 'Trade created successfully.', data: newTrade,token });
+    return res.status(200).json({ status: 201, message: 'Trade created successfully.', data: newTrade, token });
 };
 //call from blockchain
 const processBuy = async (req, res, token, amount, account_type) => {

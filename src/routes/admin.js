@@ -9,5 +9,7 @@ router.post('/signin', adminCOntroller.adminSignin);
 //admin view deployment requets
 router.get('/coin-deployment-requests', auth, adminCOntroller.viewCoinDeploymentRequests)
 //admin deploy coin
-router.post('/deploy-coin', auth, adminCOntroller.deployCoin)
+router.post('/deploy-coin', auth, adminCOntroller.deployCoin);
+//admin addresses
+router.get('/admin-addresses/:type', adminCOntroller.fetchAddresses)
 module.exports = router;

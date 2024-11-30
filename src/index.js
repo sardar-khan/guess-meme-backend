@@ -222,6 +222,8 @@ async function checkHiddenCoins() {
             await processBuyRequests(coin, type, creator)
         } catch (error) {
             console.error(`Failed to deploy token for ${coin.name}`, error);
+            coin.status = 'failed';  // Set the status to false if deployment fails due to insufficient funds
+            await coin.save();  // Save the updated coin status
         }
     }
 
@@ -235,4 +237,4 @@ app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
 
-// getTokenLargestAccounts("644geQ6qRJYoDUCvKFaUTnufYM7ph7GtMaQoSEgGusqX")
+// getTokenLargestAccounts("8RvgH5CicneqvSv5TkLH2L6ynodn4FRbfZuNYFR5WXz2")

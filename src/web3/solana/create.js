@@ -11,6 +11,8 @@ async function create(t_name, t_symbol, t_uri, max_supply) {
     const initialRealTokenReserves = tokenTotalSupply.mul(new BN(80)).div(new BN(100));
     const token_key = Keypair.generate();
     console.log("Token address (public key):", token_key.publicKey.toBase58());
+    console.log("initialRealTokenReserves", initialRealTokenReserves.toString());
+    console.log("initialVirtualTokenReserves", initialVirtualTokenReserves.toString())
     const [S] = PublicKey.findProgramAddressSync(
         [Buffer.from("mint-authority")],
         programId

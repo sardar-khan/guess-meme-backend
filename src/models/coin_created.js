@@ -30,7 +30,7 @@ const CoinCreatedSchema = new Schema({
     timer: { type: Date, required: true },
     coin_status: { type: Boolean, default: false },
     time: { type: Date, default: Date.now },
-    status: { type: String, enum: ['created', 'deployed'] },
+    status: { type: String, enum: ['created', 'deployed', 'failed'] },
     is_created: { type: Boolean },
     reviews: [{
         user: String,
