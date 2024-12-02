@@ -753,73 +753,100 @@ exports.topThreeCoins = async (req, res) => {
     }
 };
 //add followers
-exports.addFollowers = async (req, res) => {
+exports.toggleFollow = async (req, res) => {
     const wallet_address = req.user.address;
+    const { user_id } = req.body;
+
     try {
-        const user = await User.findOne({ 'wallet_address.address': wallet_address })
-        if (!user) {
-            return res.status(404).json({ message: "User not found." });
-        }
-        const { user_id } = req.body;
-        const userToFollow = await User.findById(user_id);
-        if (!userToFollow) {
-            return res.status(404).json({ message: "Please recheck User not found." });
-        }
-        if (user.id === user_id) {
-            return res.status(404).json({ message: "You dont follow yourself." });
-        }
-        if (user.following.includes(user_id)) {
-            return res.status(400).json({ message: "You are already following this user." });
+        const currentUser = await User.findOne({ 'wallet_address.address': wallet_address });
+        if (!currentUser) {
+            return res.status(404).json({ status: 404, message: "Logged-in user not found." });
         }
 
-        userToFollow.followers_count += 1;
-        userToFollow.followers.push(user._id);
-        user.following.push(user_id);
-        await userToFollow.save();
-        await user.save();
-        return res.status(200).json({ status: 200, message: 'User followed successfully.' });
+        const targetUser = await User.findById(user_id);
+        if (!targetUser) {
+            return res.status(404).json({ status: 404, message: "Target user not found." });
+        }
+
+        if (currentUser._id.equals(user_id)) {
+            return res.status(400).json({ status: 400, message: "You cannot follow or unfollow yourself." });
+        }
+
+        // Check if the logged-in user is already following the target user
+        const isFollowing = targetUser.followers.includes(currentUser._id);
+
+        if (isFollowing) {
+            // Unfollow logic
+            targetUser.followers = targetUser.followers.filter(
+                (id) => !id.equals(currentUser._id)
+            );
+            currentUser.following = currentUser.following.filter(
+                (id) => !id.equals(targetUser._id)
+            );
+
+            targetUser.followers_count -= 1;
+
+            await targetUser.save();
+            await currentUser.save();
+
+            return res.status(200).json({
+                status: 200,
+                message: "Successfully unfollowed the user.",
+                following: false,
+            });
+        } else {
+            // Follow logic
+            targetUser.followers.push(currentUser._id);
+            currentUser.following.push(targetUser._id);
+
+            targetUser.followers_count += 1;
+
+            await targetUser.save();
+            await currentUser.save();
+
+            return res.status(200).json({
+                message: "Successfully followed the user.",
+                following: true,
+            });
+        }
     } catch (error) {
-        return res.status(500).json({ message: error.message });
-    }
-}
-// unfollow a user
-exports.unfollow = async (req, res) => {
-    const wallet_address = req.user.address; // User's wallet address from the token
-    try {
-        // Find the current user based on the wallet address
-        const user = await User.findOne({ 'wallet_address.address': wallet_address });
-        if (!user) {
-            return res.status(404).json({ message: "User not found." });
-        }
-
-        const { user_id } = req.body; // The ID of the user to unfollow
-        const userToUnfollow = await User.findById(user_id);
-        if (!userToUnfollow) {
-            return res.status(404).json({ message: "User to unfollow not found." });
-        }
-
-        // Check if the user is trying to unfollow themselves
-        if (user.id === user_id) {
-            return res.status(400).json({ message: "You cannot unfollow yourself." });
-        }
-        if (!user.following.includes(user_id)) {
-            return res.status(400).json({ message: "You are not following this user." });
-        }
-        // Remove the current user's ID from the target user's followers list
-        userToUnfollow.followers_count -= 1;
-        userToUnfollow.followers = userToUnfollow.followers.filter(id => id.toString() !== user._id.toString());
-
-        // Remove the target user's ID from the current user's following list
-        user.following = user.following.filter(id => id.toString() !== user_id.toString());
-
-        // Save the updated user documents
-        await userToUnfollow.save();
-        await user.save();
-
-        return res.status(200).json({ status: 200, message: 'User unfollowed successfully.' });
-    } catch (error) {
-        console.error(error);
-        return res.status(500).json({ message: error.message });
+        console.error(`Error in toggleFollow: ${error.message}`);
+        return res.status(500).json({ status: 500, error: error.message });
     }
 };
-//
+
+//check user follow yet or not 
+exports.canFollow = async (req, res) => {
+    const wallet_address = req.user.address; // Assuming the user's wallet address is in req.user
+    const { user_id } = req.body; // ID of the user to check
+
+    try {
+        const currentUser = await User.findOne({ 'wallet_address.address': wallet_address });
+        if (!currentUser) {
+            return res.status(404).json({ status: 404, message: "Logged-in user not found." });
+        }
+
+        const targetUser = await User.findById(user_id);
+        if (!targetUser) {
+            return res.status(404).json({ status: 404, message: "Target user not found." });
+        }
+
+        if (currentUser._id.equals(user_id)) {
+            return res.status(400).json({ status: 400, message: "You cannot follow yourself.", canFollow: false });
+        }
+
+        // // Check if the logged-in user is already following the target user
+        const isFollowing = targetUser.followers.includes(currentUser._id);
+
+        return res.status(200).json({
+            status: 200,
+            follow_status: isFollowing,
+            message: isFollowing
+                ? "You are already following this user."
+                : "You can follow this user.",
+        });
+    } catch (error) {
+        console.error(`Error in canFollow: ${error.message}`);
+        return res.status(500).json({ message: "Something went wrong.", error: error.message });
+    }
+};
