@@ -66,12 +66,14 @@ exports.getThreads = async (req, res) => {
                 path: 'user_id', // Reference to the User model
                 select: 'user_name profile_photo' // Fields to include
             });
-        const like_counts = threads.length;
+        const like_counts = threads.reduce((sum, thread) => sum + thread.likes.length, 0);
+        console.log("Total likes count:", like_counts);
         console.log("like_counts", like_counts)
         res.status(200).json({
             status: 200,
             message: 'Threads against given token.',
             data: threads,
+            like_counts,
             totalPages: Math.ceil(totalThreads / limit),
             currentPage: page
         });
