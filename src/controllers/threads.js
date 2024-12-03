@@ -62,27 +62,31 @@ exports.getThreads = async (req, res) => {
 
         const threads = await Thread.find({ token_id })
             .skip((page - 1) * limit)
-            .limit(limit).populate({
+            .limit(limit)
+            .populate({
                 path: 'user_id', // Reference to the User model
                 select: 'user_name profile_photo' // Fields to include
             });
-        const like_counts = threads.reduce((sum, thread) => sum + thread.likes.length, 0);
-        console.log("Total likes count:", like_counts);
-        console.log("like_counts", like_counts)
+
+        // Add total likes count for each thread
+        const threadsWithLikes = threads.map(thread => ({
+            ...thread.toObject(),
+            totalLikes: thread.likes.length // Count the number of likes
+        }));
+
         res.status(200).json({
             status: 200,
             message: 'Threads against given token.',
-            data: threads,
-            like_counts,
+            data: threadsWithLikes,
             totalPages: Math.ceil(totalThreads / limit),
             currentPage: page
         });
-
     } catch (error) {
-        console.error(error);
-        return res.status(200).json({ status: 500, error: error.message });
+        console.error(`Error fetching threads: ${error.message}`);
+        return res.status(500).json({ status: 500, error: error.message });
     }
 };
+
 
 exports.toggleLike = async (req, res) => {
     const { thread_id } = req.body; // ID of the thread or reply
