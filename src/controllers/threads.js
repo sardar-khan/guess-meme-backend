@@ -80,3 +80,96 @@ exports.getThreads = async (req, res) => {
         return res.status(200).json({ status: 500, error: error.message });
     }
 };
+
+exports.toggleLike = async (req, res) => {
+    const { thread_id } = req.body; // ID of the thread or reply
+    const wallet_address = req.user.address;
+
+    try {
+        const user = await User.findOne({ 'wallet_address.address': wallet_address });
+        if (!user) {
+            return res.status(401).json({ status: 401, message: "Please connect your wallet to like/unlike." });
+        }
+
+        const thread = await Thread.findById(thread_id);
+        if (!thread) {
+            return res.status(404).json({ status: 404, message: "Thread or reply not found." });
+        }
+
+        // Check if the user has already liked the thread/reply
+        const likeIndex = thread.likes.findIndex(like => like.user_id.toString() === user.id.toString());
+        if (likeIndex !== -1) {
+            // Unlike the thread/reply
+            thread.likes.splice(likeIndex, 1);
+            await thread.save();
+            return res.status(200).json({ status: 200, message: "Unlike successful." });
+        } else {
+            // Like the thread/reply
+            thread.likes.push({ user_id: user.id });
+            await thread.save();
+            return res.status(200).json({ status: 200, message: "Like successful." });
+        }
+    } catch (error) {
+        console.error(`Error toggling like: ${error.message}`);
+        return res.status(500).json({ status: 500, message: "Something went wrong.", error: error.message });
+    }
+};
+
+//like status 
+exports.checkLikeStatus = async (req, res) => {
+    const { thread_id } = req.body; // Thread or Reply ID
+    const wallet_address = req.user.address;
+
+    try {
+        const user = await User.findOne({ 'wallet_address.address': wallet_address });
+        if (!user) {
+            return res.status(404).json({ status: 404, message: "User not found." });
+        }
+
+        const thread = await Thread.findById(thread_id);
+        if (!thread) {
+            return res.status(404).json({ message: "Thread or reply not found." });
+        }
+
+        const liked = thread.likes.some(like => like.user_id.toString() === user.id.toString());
+
+        return res.status(200).json({
+            status: 200,
+            message: liked ? "You have liked this thread/reply." : "You have not liked this thread/reply.",
+            liked
+        });
+    } catch (error) {
+        console.error(`Error checking like status: ${error.message}`);
+        return res.status(500).json({ message: "Something went wrong.", error: error.message });
+    }
+};
+//view user likes
+exports.viewUserLikes = async (req, res) => {
+    const wallet_address = req.user.address;
+
+    try {
+        const user = await User.findOne({ 'wallet_address.address': wallet_address });
+        if (!user) {
+            return res.status(404).json({ status: 404, message: "User not found." });
+        }
+
+        const likedThreads = await Thread.find({ 'likes.user_id': user.id })
+            .select('text thread_id reply_id likes.createdAt')
+            .populate({
+                path: 'token_id',
+                select: 'name image' // Include token details if available
+            });
+
+        const count = likedThreads.length;
+
+        return res.status(200).json({
+            status: 200,
+            message: "User's liked threads and replies.",
+            count,
+            data: likedThreads
+        });
+    } catch (error) {
+        console.error(`Error fetching user's likes: ${error.message}`);
+        return res.status(500).json({ message: "Something went wrong.", error: error.message });
+    }
+};

@@ -218,7 +218,7 @@ async function checkHiddenCoins() {
 
             deploymentRequest.status = 'approved';
             await deploymentRequest.save();
-            console.log("here", creator)
+            // console.log("here", creator)
             await processBuyRequests(coin, type, creator)
         } catch (error) {
             console.error(`Failed to deploy token for ${coin.name}`, error);
@@ -237,7 +237,8 @@ app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
 
-// getTokenLargestAccounts("8RvgH5CicneqvSv5TkLH2L6ynodn4FRbfZuNYFR5WXz2")
+getTokenLargestAccounts("7jTh9pxwMByfmYZKxHtd1gjwNz7GkMRihye537SFfRKA")
+// create('Fresh Token', 'FT', 'http://localhost:5000/user/metadata/67077e41d45a7d48dbd15975', 100);
 // transferEthToAdmin(0.01)
 // transferMatic();
 // transferSol('4sdSJgUYH1tREGZrSy2QFDZWqMUjD32gM9B6EryK4Mau', '3bYzjrW1FXSdT35h2kCeSQbYqJkfi7yDqZDds9G7gd8y', 0.02)

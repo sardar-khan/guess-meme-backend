@@ -13,7 +13,13 @@ const ThreadSchema = new Schema({
     },
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },
-    replies: [{ type: Schema.Types.ObjectId, ref: 'Thread' }] // Array of nested threads (replies)
+    replies: [{ type: Schema.Types.ObjectId, ref: 'Thread' }], // Array of nested threads (replies)
+    likes: [
+        {
+            user_id: { type: Schema.Types.ObjectId, ref: 'User' }, // User who liked the thread
+            likedAt: { type: Date, default: Date.now }             // Timestamp of the like
+        }
+    ]
 });
 
 const Thread = mongoose.model('thread', ThreadSchema);
