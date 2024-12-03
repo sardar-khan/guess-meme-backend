@@ -66,15 +66,12 @@ exports.getThreads = async (req, res) => {
                 path: 'user_id', // Reference to the User model
                 select: 'user_name profile_photo' // Fields to include
             });
-        const threadsWithLikes = threads.map(thread => ({
-            ...thread.toObject(),
-            totalLikes: thread.likes.length // Count the number of likes
-        }));
-
+        const like_counts = threads.length;
+        console.log("like_counts", like_counts)
         res.status(200).json({
             status: 200,
             message: 'Threads against given token.',
-            data: threadsWithLikes,
+            data: threads,
             totalPages: Math.ceil(totalThreads / limit),
             currentPage: page
         });
@@ -152,19 +149,45 @@ exports.viewUserLikes = async (req, res) => {
     const wallet_address = req.user.address;
 
     try {
+        // Find the user by wallet address
         const user = await User.findOne({ 'wallet_address.address': wallet_address });
         if (!user) {
             return res.status(404).json({ status: 404, message: "User not found." });
         }
 
-        const likedThreads = await Thread.find({ 'likes.user_id': user.id })
-            .select('text thread_id reply_id likes.createdAt')
+        // Find all threads where this user has liked
+        const allThreads = await Thread.find({ 'likes.user_id': user.id })
             .populate({
                 path: 'token_id',
                 select: 'name image' // Include token details if available
             });
+        const count = allThreads.reduce((sum, thread) => sum + thread.likes.length, 0);
+        return res.status(200).json({
+            status: 200,
+            message: "User's likes retrieved successfully for all threads.",
+            count,
+            data: allThreads
+        });
+    } catch (error) {
+        console.error(`Error fetching user's likes: ${error.message}`);
+        return res.status(500).json({ message: "Something went wrong.", error: error.message });
+    }
+};
 
-        const count = likedThreads.length;
+//view creator likes
+exports.viewCreatorLikes = async (req, res) => {
+    const wallet_address = req.user.address;
+
+    try {
+        const user = await User.findOne({ 'wallet_address.address': wallet_address });
+        if (!user) {
+            return res.status(404).json({ status: 404, message: "User not found." });
+        }
+
+        const likedThreads = await Thread.find({ user_id: user.id })
+            .select('likes');
+        // Calculate the total number of likes
+        const count = likedThreads.reduce((sum, thread) => sum + thread.likes.length, 0);
 
         return res.status(200).json({
             status: 200,
@@ -177,8 +200,8 @@ exports.viewUserLikes = async (req, res) => {
         return res.status(500).json({ message: "Something went wrong.", error: error.message });
     }
 };
-//view creator likes
-exports.viewCreatorLikes = async (req, res) => {
+//view mentiones 
+exports.viewCreatorMentioned = async (req, res) => {
     const wallet_address = req.user.address;
 
     try {
@@ -187,20 +210,16 @@ exports.viewCreatorLikes = async (req, res) => {
             return res.status(404).json({ status: 404, message: "User not found." });
         }
 
-        const likedThreads = await Thread.find({ 'likes.user_id': user.id })
-            .select('text thread_id reply_id likes.createdAt')
-            .populate({
-                path: 'token_id',
-                select: 'name image' // Include token details if available
-            });
-
-        const count = likedThreads.length;
+        const likedThreads = await Thread.find({ user_id: user.id })
+            .select('replies');
+        console.log("likedThreads", likedThreads)
+        // Calculate the total number of likes
+        const count = likedThreads.reduce((sum, thread) => sum + thread.replies.length, 0);
 
         return res.status(200).json({
             status: 200,
             message: "User's liked threads and replies.",
             count,
-            data: likedThreads
         });
     } catch (error) {
         console.error(`Error fetching user's likes: ${error.message}`);

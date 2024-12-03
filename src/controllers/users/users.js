@@ -554,6 +554,16 @@ exports.viewUser = async (req, res) => {
             wallet_address: follower.wallet_address[0].address,
             address: follower.address
         }));
+        const likedThreads = await Thread.find({ user_id: user.id })
+            .select('likes');
+        const totalLikes = likedThreads.reduce((sum, thread) => sum + thread.likes.length, 0);
+
+        // Calculate total mentions (mentions of the user's wallet address in threads/replies)
+        const mentionedThreads = await Thread.find({ user_id: user.id })
+            .select('replies');
+
+        // Calculate the total number of likes
+        const count = mentionedThreads.reduce((sum, thread) => sum + thread.replies.length, 0);
 
         user.token = undefined;
         user.trades = undefined;
@@ -567,6 +577,8 @@ exports.viewUser = async (req, res) => {
                     ...user.toObject(),
                     following_count: followingDetails.length, // Add following count
                     followers_count: followersDetails.length, // Add followers count
+                    total_likes: totalLikes, // Add total likes
+                    total_mentions: count // Add total mentions
                 },
                 following: followingDetails, // List of following users
                 followers: followersDetails, // List of followers users

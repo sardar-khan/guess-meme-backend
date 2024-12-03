@@ -9,5 +9,6 @@ router.get('/view/:token_id', threadController.getThreads);
 router.post('/toggle-like', auth, threadController.toggleLike);
 router.post('/check-like-status', auth, threadController.checkLikeStatus);
 router.get('/user-likes', auth, threadController.viewUserLikes);
-router.get('/creator-likes', auth, threadController.viewCreatorLikes)
+router.get('/creator-likes', auth, threadController.viewCreatorLikes);
+router.get('/creator-mentions', auth, threadController.viewCreatorMentioned)
 module.exports = router;
