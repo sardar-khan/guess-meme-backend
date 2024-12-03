@@ -66,11 +66,15 @@ exports.getThreads = async (req, res) => {
                 path: 'user_id', // Reference to the User model
                 select: 'user_name profile_photo' // Fields to include
             });
+        const threadsWithLikes = threads.map(thread => ({
+            ...thread.toObject(),
+            totalLikes: thread.likes.length // Count the number of likes
+        }));
 
         res.status(200).json({
             status: 200,
             message: 'Threads against given token.',
-            data: threads,
+            data: threadsWithLikes,
             totalPages: Math.ceil(totalThreads / limit),
             currentPage: page
         });
@@ -102,12 +106,12 @@ exports.toggleLike = async (req, res) => {
             // Unlike the thread/reply
             thread.likes.splice(likeIndex, 1);
             await thread.save();
-            return res.status(200).json({ status: 200, message: "Unlike successful." });
+            return res.status(200).json({ status: 200, message: "Unlike successful.", like: false });
         } else {
             // Like the thread/reply
             thread.likes.push({ user_id: user.id });
             await thread.save();
-            return res.status(200).json({ status: 200, message: "Like successful." });
+            return res.status(200).json({ status: 200, message: "Like successful.", like: true });
         }
     } catch (error) {
         console.error(`Error toggling like: ${error.message}`);
@@ -145,6 +149,36 @@ exports.checkLikeStatus = async (req, res) => {
 };
 //view user likes
 exports.viewUserLikes = async (req, res) => {
+    const wallet_address = req.user.address;
+
+    try {
+        const user = await User.findOne({ 'wallet_address.address': wallet_address });
+        if (!user) {
+            return res.status(404).json({ status: 404, message: "User not found." });
+        }
+
+        const likedThreads = await Thread.find({ 'likes.user_id': user.id })
+            .select('text thread_id reply_id likes.createdAt')
+            .populate({
+                path: 'token_id',
+                select: 'name image' // Include token details if available
+            });
+
+        const count = likedThreads.length;
+
+        return res.status(200).json({
+            status: 200,
+            message: "User's liked threads and replies.",
+            count,
+            data: likedThreads
+        });
+    } catch (error) {
+        console.error(`Error fetching user's likes: ${error.message}`);
+        return res.status(500).json({ message: "Something went wrong.", error: error.message });
+    }
+};
+//view creator likes
+exports.viewCreatorLikes = async (req, res) => {
     const wallet_address = req.user.address;
 
     try {
