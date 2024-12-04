@@ -362,7 +362,10 @@ exports.createBuyTrade = async (res, token_id, type, amount, account_type, token
         if (type === 'buy') {
             supply += parseFloat(amount);
             console.log("after buy", supply);
-            token.market_cap = marketCap;
+            if (marketCap == null) {
+                marketCap = 0
+                token.market_cap = marketCap;
+            }
         }
 
         // Ensure the updated supply is a valid number
@@ -450,7 +453,7 @@ exports.postLaunchTrade = async (req, res, user, token, type, amount, account_ty
     }
 
 
-    const token_cap = await getTokenLargestAccounts(token_address);
+    const token_cap = await marketCapPolygon(token_address);
     const marketCap = token_cap.market_cap;
     if (type === 'buy') {
         console.log("buy")
