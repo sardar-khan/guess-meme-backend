@@ -36,4 +36,6 @@ router.get('/sol/marketcap', getTokenLargestAccounts)
 router.get("/get-bonding", getBondingCurve)
 //add coin reviews 
 router.post('/feedback', auth, userController.addReview)
+//reset notification count
+router.get('/reset-notification-count', auth, userController.markNotificationsAsRead)
 module.exports = router;

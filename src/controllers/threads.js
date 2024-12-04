@@ -2,6 +2,7 @@ const CoinCreated = require("../models/coin_created");
 const Thread = require("../models/threads");
 const User = require("../models/users");
 const crypto = require('crypto');
+const pusher = require('../config/pusher')
 const { generateId } = require("../services/threads/thread");
 
 exports.createThread = async (req, res) => {
@@ -40,6 +41,19 @@ exports.createThread = async (req, res) => {
             }
             parentThread.replies.push(newThread._id);
             await parentThread.save();
+            // Send real-time notification using Pusher for replies
+            const pusherData = {
+                reply_id: newThread.reply_id,
+                reply_text: newThread.text,
+                parent_thread_id: parentThread.thread_id,
+                user_name: user.user_name,
+                created_at: newThread.createdAt,
+            };
+
+            pusher.trigger("threads-channel", "new-reply", pusherData);
+            user.unread_notifications += 1;
+            await user.save();  // Save the updated unread notification count
+            console.log("Unread notifications count:", user.unread_notifications);
         }
 
         const user_name = user.user_name;
@@ -114,6 +128,15 @@ exports.toggleLike = async (req, res) => {
             // Like the thread/reply
             thread.likes.push({ user_id: user.id });
             await thread.save();
+            // Notify via Pusher (like event)
+            pusher.trigger(`private-thread-${thread_id}`, 'like', {
+                message: `${user.user_name} liked your thread.`,
+                thread_id: thread_id,
+                user_id: user.id,
+            });
+            user.unread_notifications += 1;
+            await user.save();  // Save the updated unread notification count
+            console.log("Unread notifications count:", user.unread_notifications);
             return res.status(200).json({ status: 200, message: "Like successful.", like: true });
         }
     } catch (error) {

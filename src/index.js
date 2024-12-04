@@ -45,7 +45,7 @@ app.get("/", (req, res) => {
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 const notificationRoutes = require('./routes/notification');
 const { deployOnTron, buyOnTron } = require('./web3/tron/tronTrades');
-const { getTokenLargestAccounts } = require('./web3/test');
+const { getTokenLargestAccounts, marketCapPolygon } = require('./web3/test');
 const Trade = require('./models/trades');
 const { createReadStream } = require('fs');
 
@@ -237,7 +237,7 @@ app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
 
-// getTokenLargestAccounts("0x76148Cd0a2e51C54B2950a23Dd18aFDF98239e4F")
+// marketCapPolygon("0x93C27bA75a1480ac1a7aE7ea9887D5Ee8AFf6942")//
 // create('Fresh Token', 'FT', 'http://localhost:5000/user/metadata/67077e41d45a7d48dbd15975', 100);
 // transferEthToAdmin(0.01)
 // transferMatic();

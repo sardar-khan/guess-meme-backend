@@ -799,7 +799,6 @@ exports.toggleFollow = async (req, res) => {
             targetUser.followers_count -= 1;
 
             await targetUser.save();
-            await currentUser.save();
 
             return res.status(200).json({
                 status: 200,
@@ -814,8 +813,14 @@ exports.toggleFollow = async (req, res) => {
             targetUser.followers_count += 1;
 
             await targetUser.save();
+            // Trigger Pusher event for follow
+            pusher.trigger(`private-user-${user_id}`, 'follow', {
+                message: `${currentUser.user_name} started following you.`,
+                userId: currentUser._id,
+            });
+            currentUser.unread_notifications += 1;
             await currentUser.save();
-
+            console.log("count", currentUser.unread_notifications)
             return res.status(200).json({
                 message: "Successfully followed the user.",
                 following: true,
@@ -927,3 +932,27 @@ exports.getNotifications = async (req, res) => {
 };
 
 
+//make allnotfications to 0
+// Mark notifications as read (when the user views them)
+exports.markNotificationsAsRead = async (req, res) => {
+    const wallet_address = req.user.address;
+
+    try {
+        const user = await User.findOne({ 'wallet_address.address': wallet_address });
+        if (!user) {
+            return res.status(401).json({ status: 401, message: "User not found." });
+        }
+
+        // Reset unread notification count to 0
+        user.unread_notifications = 0;
+        await user.save();
+
+        return res.status(200).json({
+            status: 200,
+            message: 'Notifications marked as read.',
+        });
+    } catch (error) {
+        console.error('Error marking notifications as read:', error.message);
+        return res.status(500).json({ status: 500, error: error.message });
+    }
+};

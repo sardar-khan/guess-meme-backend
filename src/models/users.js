@@ -48,6 +48,10 @@ const UserSchema = new Schema({
         type: Schema.Types.ObjectId,
         ref: 'User'
     }],
+    unread_notifications: {
+        type: Number,
+        default: 0, // Default to 0 unread notifications
+    },
     followers_count: { type: Number, default: 0 },
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
 }, { timestamps: true });

@@ -228,9 +228,9 @@ const polygonToUsd = async (req, res) => {
 
 }
 //get market cap of the polygon
-exports.marketCapPolygon = async (req, res) => {
+exports.marketCapPolygon = async (token_address) => {
     try {
-        const { token_address } = req.body;
+
 
         const result = await getBondingCurve(token_address)
 
