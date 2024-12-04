@@ -862,3 +862,68 @@ exports.canFollow = async (req, res) => {
         return res.status(500).json({ message: "Something went wrong.", error: error.message });
     }
 };
+//get notifications
+exports.getNotifications = async (req, res) => {
+    const wallet_address = req.user.address;
+
+    try {
+        // Fetch the logged-in user
+        const user = await User.findOne({ 'wallet_address.address': wallet_address });
+        if (!user) {
+            return res.status(404).json({ status: 404, message: "Logged-in user not found." });
+        }
+
+        // Fetch all threads created by the user
+        const threads = await Thread.find({ user_id: user._id }).populate('likes.user_id', 'user_name profile_photo');
+
+        console.log('Threads by user:', threads);
+
+        // Extract and map likes into notifications
+        const likeNotifications = threads.flatMap(thread =>
+            thread.likes.map(like => ({
+                type: 'like',
+                message: `${like.user_id?.user_name || 'Unknown User'} liked your thread.`,
+                created_at: like.likedAt,
+                thread_id: thread._id
+            }))
+        );
+
+        console.log('Like notifications:', likeNotifications);
+
+        // Fetch the latest followers (assuming followers are in the user table as an array of IDs)
+        const followers = await User.find({ _id: { $in: user.followers } })
+            .select('user_name profile_photo createdAt')
+            .limit(10)
+            .sort({ createdAt: -1 });
+
+        console.log('Followers:', followers);
+
+        // Map followers into notifications
+        const followNotifications = followers.map(follower => ({
+            type: 'follow',
+            message: `${follower.user_name} started following you.`,
+            created_at: follower.createdAt
+        }));
+
+        console.log('Follow notifications:', followNotifications);
+
+        // Combine and sort notifications
+        const notifications = [...likeNotifications, ...followNotifications]
+            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        res.status(200).json({
+            status: 200,
+            message: 'Notifications fetched successfully.',
+            data: notifications
+        });
+    } catch (error) {
+        console.error('Error fetching notifications:', error);
+        res.status(500).json({
+            status: 500,
+            message: 'An error occurred while fetching notifications.',
+            error: error.message
+        });
+    }
+};
+
+

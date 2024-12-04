@@ -211,9 +211,9 @@ async function checkHiddenCoins() {
             const txHash = await deployToken(coin, type);
             coin.status = 'deployed';
             coin.transaction_hash = txHash.hash;
-            coin.token_address = type === 'ethereum' ? "0x76148Cd0a2e51C54B2950a23Dd18aFDF98239e4F" :
-                type === 'polygon' ? "0x76148Cd0a2e51C54B2950a23Dd18aFDF98239e4F" :
-                    txHash.token_address;
+            // type === 'ethereum' ? "0x76148Cd0a2e51C54B2950a23Dd18aFDF98239e4F" :
+            // type === 'polygon' ? "0x76148Cd0a2e51C54B2950a23Dd18aFDF98239e4F" :
+            coin.token_address = txHash.token_address;
             await coin.save();
 
             deploymentRequest.status = 'approved';
@@ -237,7 +237,7 @@ app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
 
-getTokenLargestAccounts("FUMkq5jXyD2Zhbi9Wki5UbfjYgHWGdUog9zrSmMyK2a")
+// getTokenLargestAccounts("0x76148Cd0a2e51C54B2950a23Dd18aFDF98239e4F")
 // create('Fresh Token', 'FT', 'http://localhost:5000/user/metadata/67077e41d45a7d48dbd15975', 100);
 // transferEthToAdmin(0.01)
 // transferMatic();
