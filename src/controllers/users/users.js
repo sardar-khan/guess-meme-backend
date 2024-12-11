@@ -306,7 +306,7 @@ exports.createCoin = async (req, res) => {
 exports.viewCoin = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 1000;
-    const sortBy = req.query.sortBy || 'createdAt';
+    const sortBy = req.query.sortBy || 'time';
     const order = req.query.order === 'asc' ? 1 : -1;
     const type = req.query.type;
 
@@ -347,9 +347,7 @@ exports.viewCoin = async (req, res) => {
         }
         // Fetch additional details (market cap, thread count, and latest thread)
         const coinsWithDetails = await Promise.all(coins.map(async (coin) => {
-            console.log("coin time", coin.creator);
             if (!coin.creator) {
-                console.error('Creator is null for coin:', coin);
                 return null
             }
 
@@ -366,7 +364,6 @@ exports.viewCoin = async (req, res) => {
 
             // Check timer to determine the coin's visibility
             if (coin.timer < now) {
-                console.log("show all");
                 return {
                     coin,
                     market_cap: soldAmount.length ? soldAmount[0].totalSold : 0,
@@ -383,7 +380,8 @@ exports.viewCoin = async (req, res) => {
                         market_cap: soldAmount.length ? soldAmount[0].totalSold : 0,
                         trust_score: trust_score,
                         status: coin?.status,
-                        creator: coin.creator
+                        creator: coin.creator,
+                        time: coin.time
                     },
                     status: coin.status,
                     threadsCount: threadsCount,
@@ -391,24 +389,30 @@ exports.viewCoin = async (req, res) => {
                 };
             }
         }));
-
-        console.log("coinsWithDetails", coinsWithDetails); // For debugging
-
         // Apply sorting
-        if (sortBy !== 'createdAt') {
-            coinsWithDetails.sort((a, b) => {
-                if (sortBy === 'market_cap') {
-                    return sortField.market_cap ? (order === 1 ? a.market_cap - b.market_cap : b.market_cap - a.market_cap) : 0;
-                } else if (sortBy === 'reply_count') {
-                    return sortField.threadsCount ? (order === 1 ? a.threadsCount - b.threadsCount : b.threadsCount - a.threadsCount) : 0;
-                } else if (sortBy === 'last_reply') {
-                    const dateA = a.latestThread ? new Date(a.latestThread.createdAt) : new Date(0);
-                    const dateB = b.latestThread ? new Date(b.latestThread.createdAt) : new Date(0);
-                    return order === 1 ? dateA - dateB : dateB - dateA;
-                }
-                return 0;
-            });
-        }
+        console.log("sortBy", sortBy, "Order", order)
+        // Apply sorting
+        coinsWithDetails.sort((a, b) => {
+            // If sorting by 'time' (coin creation time)
+            if (sortBy === 'time') {
+                const dateA = a.coin.time ? new Date(a.coin.time) : new Date(0);
+                const dateB = b.coin.time ? new Date(b.coin.time) : new Date(0);
+                return order === 1 ? dateA - dateB : dateB - dateA;
+            }
+
+            // Apply sorting for other fields
+            if (sortBy === 'market_cap') {
+                return sortField.market_cap ? (order === 1 ? a.market_cap - b.market_cap : b.market_cap - a.market_cap) : 0;
+            } else if (sortBy === 'reply_count') {
+                return sortField.threadsCount ? (order === 1 ? a.threadsCount - b.threadsCount : b.threadsCount - a.threadsCount) : 0;
+            } else if (sortBy === 'last_reply') {
+                const dateA = a.latestThread ? new Date(a.latestThread.createdAt) : new Date(0);
+                const dateB = b.latestThread ? new Date(b.latestThread.createdAt) : new Date(0);
+                return order === 1 ? dateA - dateB : dateB - dateA;
+            }
+            return 0;
+        });
+
 
         // Pagination
         const totalCoins = coinsWithDetails.length;
@@ -422,9 +426,6 @@ exports.viewCoin = async (req, res) => {
         if (!paginatedCoins.length) {
             return res.status(404).json({ message: 'No coins found.' });
         }
-
-        console.log("paginatedCoins", paginatedCoins); // For debugging
-
         // Respond with paginated and sorted coin data
         return res.status(200).json({
             status: 200,
