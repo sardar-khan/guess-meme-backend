@@ -48,6 +48,9 @@ exports.createThread = async (req, res) => {
                 parent_thread_id: parentThread.thread_id,
                 user_name: user.user_name,
                 created_at: newThread.createdAt,
+                message: `${user.user_name} mentioned you in comment.`,
+                token_id: parentThread.token_id,
+                user_profile: user.profile_photo,
             };
 
             pusher.trigger("threads-channel", "new-reply", pusherData);
@@ -132,7 +135,8 @@ exports.toggleLike = async (req, res) => {
             pusher.trigger(`private-thread-${thread_id}`, 'like', {
                 message: `${user.user_name} liked your thread.`,
                 thread_id: thread_id,
-                user_id: user.id,
+                token_id: thread.token_id,
+                user_profile: user.profile_photo,
             });
             user.unread_notifications += 1;
             await user.save();  // Save the updated unread notification count

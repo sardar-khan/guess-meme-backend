@@ -95,7 +95,7 @@ async function deployToken(coin, type) {
     }
     else if (type === 'solana') {
         console.log("my so")
-        return await create('Fresh Token', 'FT', 'http://localhost:5000/user/metadata/67077e41d45a7d48dbd15975', 100);
+        return await create(coin.name, 'FT', coin?.metadata, 100);
     }
     else if (type === 'tron') {
         return await deployOnTron({
@@ -237,7 +237,7 @@ app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
 
-// marketCapPolygon("0x93C27bA75a1480ac1a7aE7ea9887D5Ee8AFf6942")//
+getTokenLargestAccounts("4NCoau2rHuc2n4NjpqUU11vfZThPBVkaeLquo8Xo3Ztx")//
 // create('Fresh Token', 'FT', 'http://localhost:5000/user/metadata/67077e41d45a7d48dbd15975', 100);
 // transferEthToAdmin(0.01)
 // transferMatic();

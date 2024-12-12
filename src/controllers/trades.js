@@ -452,8 +452,12 @@ exports.postLaunchTrade = async (req, res, user, token, type, amount, account_ty
         return res.status(400).json({ message: 'Invalid token max supply.' });
     }
 
-
-    const token_cap = await marketCapPolygon(token_address);
+    let token_cap;
+    if (account_type === 'solana') {
+        token_cap = await getTokenLargestAccounts(token_address);
+    } if (account_type === 'ethereum') {
+        token_cap = await marketCapPolygon(token_address);
+    }
     const marketCap = token_cap.market_cap;
     if (type === 'buy') {
         console.log("buy")
