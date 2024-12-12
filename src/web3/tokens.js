@@ -39,9 +39,8 @@ async function virtualTokenAmount() {
 // const totalSupply = ethers.parseUnits('1000000000', 18) //total supply
 const deployTokenOnBlockchain = async (tokenData) => {
     console.log("token_data", tokenData);
-    let { name, symbol } = tokenData;
-
     try {
+        let { name, symbol } = tokenData;
         const totalSupply = ethers.parseUnits('1000000000', 18) //total supply
         console.log(`Deploying token: ${name} (${symbol}), Total Supply: ${totalSupply}`);
         name = name.toString();
@@ -53,12 +52,9 @@ const deployTokenOnBlockchain = async (tokenData) => {
             totalSupply,
             100
         );
-
-        await tx.wait();
-        console.log("tx", tx)
-
-        console.log('Transaction hash:', tx.hash, "token_addresss", tx.to);
-        return { hash: tx.hash, token_address: tx.to }; // Return the transaction hash
+        const newTx = await tx.wait();
+        console.log('Transaction hash:', newTx.hash, "token_addresss", newTx.logs[0].address);
+        return { hash: tx.hash, token_address: newTx.logs[0].address }; // Return the transaction hash
     } catch (error) {
         console.error('Error deploying token on the blockchain:', error);
         throw new Error('Blockchain deployment failed.');
