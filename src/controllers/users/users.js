@@ -886,12 +886,16 @@ exports.getNotifications = async (req, res) => {
 
         // Extract and map likes into notifications
         const likeNotifications = threads.flatMap(thread =>
-            thread.likes.map(like => ({
-                type: 'like',
-                message: `${like.user_id?.user_name || 'Unknown User'} liked your thread.`,
-                created_at: like.likedAt,
-                thread_id: thread._id
-            }))
+            thread.likes
+                .filter(like => String(like.user_id?.id) !== String(user.id)) // Exclude own likes
+                .map(like => ({
+                    type: 'like',
+                    message: `${like.user_id?.user_name || 'Unknown User'} liked your thread.`,
+                    created_at: like.likedAt,
+                    thread_id: thread._id,
+                    token_id: thread.token_id,
+                    user_profile: like.user_id?.profile_photo,
+                }))
         );
 
         console.log('Like notifications:', likeNotifications);
@@ -908,6 +912,7 @@ exports.getNotifications = async (req, res) => {
         const followNotifications = followers.map(follower => ({
             type: 'follow',
             message: `${follower.user_name} started following you.`,
+            user_profile: follower.profile_photo,
             created_at: follower.createdAt
         }));
 
