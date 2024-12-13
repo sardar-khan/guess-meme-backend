@@ -880,14 +880,15 @@ exports.getNotifications = async (req, res) => {
         }
 
         // Fetch all threads created by the user
-        const threads = await Thread.find({ user_id: user._id }).populate('likes.user_id', 'user_name profile_photo');
+        const threads = await Thread.find({ user_id: user._id })
+            .populate('likes.user_id', 'user_name profile_photo');
 
         console.log('Threads by user:', threads);
 
         // Extract and map likes into notifications
         const likeNotifications = threads.flatMap(thread =>
             thread.likes
-                .filter(like => String(like.user_id?.id) !== String(user.id)) // Exclude own likes
+                .filter(like => String(like.user_id?._id) !== String(user._id)) // Exclude own likes
                 .map(like => ({
                     type: 'like',
                     message: `${like.user_id?.user_name || 'Unknown User'} liked your thread.`,
@@ -900,7 +901,7 @@ exports.getNotifications = async (req, res) => {
 
         console.log('Like notifications:', likeNotifications);
 
-        // Fetch the latest followers (assuming followers are in the user table as an array of IDs)
+        // Fetch the latest followers
         const followers = await User.find({ _id: { $in: user.followers } })
             .select('user_name profile_photo createdAt')
             .limit(10)
@@ -913,29 +914,46 @@ exports.getNotifications = async (req, res) => {
             type: 'follow',
             message: `${follower.user_name} started following you.`,
             user_profile: follower.profile_photo,
-            created_at: follower.createdAt
+            created_at: follower.createdAt,
         }));
 
         console.log('Follow notifications:', followNotifications);
 
-        // Combine and sort notifications
-        const notifications = [...likeNotifications, ...followNotifications]
+        // Extract mentions from replies
+        const repliesIds = threads.flatMap(thread => thread.replies);
+        const replies = await Thread.find({ _id: { $in: repliesIds } })
+            .populate('user_id', 'user_name profile_photo');
+        const mentionNotifications = replies
+            .map(reply => ({
+                type: 'mention',
+                message: `${reply.user_id?.user_name || 'Unknown User'} mentioned you.`,
+                created_at: reply.createdAt,
+                thread_id: reply.thread_id,
+                token_id: reply.token_id,
+                user_profile: reply.user_id?.profile_photo,
+            }));
+
+        console.log('Mention notifications:', mentionNotifications);
+
+        // Combine all notifications
+        const notifications = [...likeNotifications, ...followNotifications, ...mentionNotifications]
             .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
         res.status(200).json({
             status: 200,
             message: 'Notifications fetched successfully.',
-            data: notifications
+            data: notifications,
         });
     } catch (error) {
         console.error('Error fetching notifications:', error);
         res.status(500).json({
             status: 500,
             message: 'An error occurred while fetching notifications.',
-            error: error.message
+            error: error.message,
         });
     }
 };
+
 
 
 //make allnotfications to 0
