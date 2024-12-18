@@ -94,8 +94,8 @@ async function deployToken(coin, type) {
         });
     }
     else if (type === 'solana') {
-        console.log("my so")
-        return await create(coin.name, 'FT', coin?.metadata, 100);
+        console.log("my so", coin.name)
+        return await create(coin.name, 'FT', `/user/metadata/${coin.id}`, 100);
     }
     else if (type === 'tron') {
         return await deployOnTron({
@@ -158,19 +158,19 @@ async function processBuyRequests(coin, type, creator) {
                 transaction_hash: req.transaction_hash
             });
             await newTrade.save();
-            const coinIndex = req.coins_held.findIndex(coin => coin.coinId.toString() === coin._id.toString());
+            const coinIndex = creator?.coins_held.findIndex(coin => coin.coinId.toString() === coin._id.toString());
             if (coinIndex > -1) {
                 // Update amount for existing holding
                 if (type === 'buy') {
-                    req.coins_held[coinIndex].amount += parseFloat(amount);
+                    creator.coins_held[coinIndex].amount += parseFloat(amount);
                 } else if (type === 'sell') {
-                    req.coins_held[coinIndex].amount = Math.max(0, req.coins_held[coinIndex].amount - parseFloat(amount));
+                    creator.coins_held[coinIndex].amount = Math.max(0, creator.coins_held[coinIndex].amount - parseFloat(amount));
                 }
             } else {
                 // Add new coin holding
-                req.coins_held.push({ coinId: coin._id, amount: type === 'buy' ? parseFloat(amount) : 0 });
+                creator.coins_held.push({ coinId: coin._id, amount: type === 'buy' ? parseFloat(amount) : 0 });
             }
-            console.log("userr", req);
+            console.log("userr", req, creator);
             await req.save();
 
         } catch (error) {
@@ -237,7 +237,7 @@ app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
 
-// getTokenLargestAccounts("4NCoau2rHuc2n4NjpqUU11vfZThPBVkaeLquo8Xo3Ztx")//
+//getTokenLargestAccounts("5GLQbrPr7G8HnXPY4dXESRSB8SMiLa6pbCnYKT8YnaRJ")//
 // create('Fresh Token', 'FT', 'http://localhost:5000/user/metadata/67077e41d45a7d48dbd15975', 100);
 // transferEthToAdmin(0.01)
 // transferMatic();
