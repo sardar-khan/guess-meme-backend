@@ -219,7 +219,18 @@ async function checkHiddenCoins() {
             deploymentRequest.status = 'approved';
             await deploymentRequest.save();
             const tradeNotification = {
+                user_name: creator.user_name,
+                action: `created ${coin.name}`,
+                coin_photo: coin.image,
+                date: coin.time,
+                token_id: coin._id,
+                ticker: coin.ticker,
+                replies: 0,
                 status: coin.status,
+                market_cap: coin.market_cap,
+                bonding_curve: coin.bonding_curve,
+                description: coin.description,
+                name: coin.name
             }
             pusher.trigger('coin-created-channel', 'coin-created', tradeNotification)
             // console.log("here", creator)
