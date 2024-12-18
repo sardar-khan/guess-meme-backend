@@ -291,7 +291,14 @@ exports.createCoin = async (req, res) => {
                 token_id: newCoin._id,
                 ticker: ticker,
                 replies: 0,
-                status: newCoin.status
+                status: newCoin.status,
+                market_cap: newCoin.market_cap,
+                bonding_curve: newCoin.bonding_curve,
+                ticker: newCoin.ticker,
+                description: newCoin.description,
+                name: newCoin.name
+
+
                 // user_image: user.profile_photo
             };
             console.log("initated-noti", tradeNotification)
