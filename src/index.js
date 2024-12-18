@@ -218,6 +218,7 @@ async function checkHiddenCoins() {
 
             deploymentRequest.status = 'approved';
             await deploymentRequest.save();
+            pusher.trigger('coin-created-channel', 'coin-created', coin.status)
             // console.log("here", creator)
             await processBuyRequests(coin, type, creator)
         } catch (error) {
