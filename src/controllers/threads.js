@@ -61,7 +61,15 @@ exports.createThread = async (req, res) => {
 
         const user_name = user.user_name;
         const user_profile = user.profile_photo;
-
+        const pusherData = {
+            thread_id: newThread.thread_id,
+            text: newThread.text,
+            user_name: user_name,
+            created_at: newThread.createdAt,
+            token_id: token.id,
+            user_profile: user_profile,
+        };
+        pusher.trigger("threads-channel", "new-reply", pusherData);
         return res.status(200).json({ status: 201, message: 'Thread created successfully.', data: newThread, user_name: user_name, profile: user_profile });
     } catch (error) {
         console.error(error);
