@@ -14,6 +14,8 @@ exports.createThread = async (req, res) => {
         if (!user) {
             return res.status(200).json({ status: 401, message: "Failed to post please connect your wallet" });
         }
+        const user_name = user.user_name;
+        const user_profile = user.profile_photo;
 
         // Check if the token exists
         const token = await CoinCreated.findById(token_id);
@@ -55,16 +57,18 @@ exports.createThread = async (req, res) => {
             console.log("Unread notifications count:", user.unread_notifications);
         }
 
-        const user_name = user.user_name;
-        const user_profile = user.profile_photo;
-        const pusherData = {
-            newThread,
-            user_name: user_name,
-            user_profile: user_profile,
-            user_id: user.id,
 
-        };
-        pusher.trigger("threads-channel", "new-reply", pusherData);
+        else {
+            const pusherData = {
+                newThread,
+                user_name: user_name,
+                user_profile: user_profile,
+                user_id: user.id,
+
+            };
+
+            pusher.trigger("threads-channel", "new-reply", pusherData);
+        }
         return res.status(200).json({ status: 201, message: 'Thread created successfully.', data: newThread, user_name: user_name, profile: user_profile });
     } catch (error) {
         console.error(error);
