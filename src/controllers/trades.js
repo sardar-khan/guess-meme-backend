@@ -574,7 +574,7 @@ const tradeNotificationPusher = (user, token, type, amount) => {
         this.getKingOfTheHillPercentage(token.token_address),
         this.getBondingCurveProgress(token.token_address),
         this.getTrades(token.id),
-        topHolders(token.address)
+        topHolders(token.token_address)
     ];
 
     Promise.all(promises)
