@@ -43,13 +43,9 @@ exports.createThread = async (req, res) => {
             await parentThread.save();
             // Send real-time notification using Pusher for replies
             const pusherData = {
-                reply_id: newThread.reply_id,
-                reply_text: newThread.text,
-                parent_thread_id: parentThread.thread_id,
+                newThread,
                 user_name: user.user_name,
-                created_at: newThread.createdAt,
                 message: `${user.user_name} mentioned you in comment.`,
-                token_id: parentThread.token_id,
                 user_profile: user.profile_photo,
             };
 
@@ -62,12 +58,11 @@ exports.createThread = async (req, res) => {
         const user_name = user.user_name;
         const user_profile = user.profile_photo;
         const pusherData = {
-            thread_id: newThread.thread_id,
-            text: newThread.text,
+            newThread,
             user_name: user_name,
-            created_at: newThread.createdAt,
-            token_id: token.id,
             user_profile: user_profile,
+            user_id: user.id,
+
         };
         pusher.trigger("threads-channel", "new-reply", pusherData);
         return res.status(200).json({ status: 201, message: 'Thread created successfully.', data: newThread, user_name: user_name, profile: user_profile });
