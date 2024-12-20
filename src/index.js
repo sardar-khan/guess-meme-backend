@@ -27,7 +27,7 @@ const CoinCreated = require('./models/coin_created'); // Adjust the path as need
 const CoinDeploymentRequest = require('./models/coins_deploy_request');
 const { deployTokenOnBlockchain, buyTokensOnBlockchain, transferTokensBasedOnAmount, transferEthToAdmin, transferMatic } = require('./web3/tokens');
 const buyers_requests = require('./models/buyers_requests');
-const { getLatestTradeAndCoin } = require('./controllers/trades');
+const { getLatestTradeAndCoin, getKingOfTheHillPercentage, getBondingCurveProgress, getTrades } = require('./controllers/trades');
 const User = require('./models/users');
 const { create } = require('./web3/solana/create');
 const { buyWithAddress, initializeUserATA, transferSol } = require('./web3/solana/buyTokens');
@@ -48,6 +48,7 @@ const { deployOnTron, buyOnTron } = require('./web3/tron/tronTrades');
 const { getTokenLargestAccounts, marketCapPolygon } = require('./web3/test');
 const Trade = require('./models/trades');
 const { createReadStream } = require('fs');
+const { topHolders } = require('./controllers/users/users');
 
 // Use routes
 app.use('/notifications', notificationRoutes);

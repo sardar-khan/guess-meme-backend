@@ -285,6 +285,7 @@ exports.createCoin = async (req, res) => {
             await user.save();
             const tradeNotification = {
                 user_name: user.user_name,
+                user_id: user.id,
                 action: `created ${name}`,
                 coin_photo: image,
                 date: newCoin.time,
@@ -464,14 +465,12 @@ exports.viewCoinAginstId = async (req, res) => {
     }
 }
 //top 20 holders 
-exports.topHolders = async (req, res) => {
-    const { token_address } = req.body;
-
+exports.topHolders = async (token_address) => {
     try {
         // Find the coin by token address
         const coin = await coins_created.findOne({ token_address });
         if (!coin) {
-            return res.status(404).json({ status: 404, message: 'Coin not found.' });
+            throw ({ status: 404, message: 'Coin not found.' });
         }
 
         // Aggregate the top 20 holders
@@ -493,14 +492,12 @@ exports.topHolders = async (req, res) => {
             };
         }));
 
-        return res.status(200).json({
-            status: 200,
-            message: 'Top holders fetched successfully.',
+        return {
             data: holdersWithDetails
-        });
+        };
     } catch (error) {
         console.error(error);
-        return res.status(500).json({ status: 500, error: error.message });
+        throw error;
     }
 
 }

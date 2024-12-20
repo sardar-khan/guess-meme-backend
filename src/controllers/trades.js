@@ -8,6 +8,7 @@ const { buyTokensOnBlockchain } = require("../web3/tokens");
 const { buyWithAddress, initializeUserATA } = require("../web3/solana/buyTokens");
 const { buyOnTron } = require("../web3/tron/tronTrades");
 const { mintaddy, wallet } = require('../web3/solana/config');
+const { topHolders } = require("./users/users");
 exports.createTrade = async (req, res) => {
     const { token_id, type, amount, account_type, token_amount, transaction_hash } = req.body;
     const account = req.user.address;
@@ -36,47 +37,43 @@ exports.createTrade = async (req, res) => {
 
 
 //get the all trades aginst the token
-exports.getTrades = async (req, res) => {
-    const { token_id } = req.params;
+exports.getTrades = async (token_id, page, limit) => {
     console.log("token_id", token_id)
-    const { page = 1, limit = 10 } = req.query; // Default values if not provided
 
     try {
         const trades = await Trade.find({ token_id })
             .populate('account', 'user_name profile_photo')
             .populate('token_id', 'name ticker description image')
+            .sort({ created_at: -1 })
             .skip((page - 1) * limit) // Skip the trades of previous pages
-            .limit(parseInt(limit)); // Limit the number of trades to fetch
+            .limit(parseInt(limit)) // Limit the number of trades to fetch
+
 
         const totalTrades = await Trade.countDocuments({ token_id }); // Total number of trades for the token
 
         if (!trades.length) {
-            return res.status(404).json({ message: 'No trades found for this token.' });
+            throw ({ message: 'No trades found for this token.' });
         }
 
-        return res.status(200).json({
-            status: 200,
-            message: 'Trades fetched successfully.',
+        return {
             data: trades,
             currentPage: page,
             totalPages: Math.ceil(totalTrades / limit),
             totalTrades: totalTrades
-        });
+        };
     } catch (error) {
         console.error(error);
-        return res.status(200).json({ status: 500, error: error.message });
+        throw error
     }
 };
 
 //fgwfggfe
-exports.getBondingCurveProgress = async (req, res) => {
-    const { token_address } = req.body;
-
+exports.getBondingCurveProgress = async (token_address) => {
     try {
-        const token = await CoinCreated.findOne({ token_address });
+        const token = await CoinCreated.findOne({ token_address: token_address });
 
         if (!token) {
-            return res.status(404).json({ message: 'Token not found.' });
+            throw ({ message: 'Token not found.' });
         }
         console.log("Hey token", token.max_supply)
 
@@ -87,18 +84,11 @@ exports.getBondingCurveProgress = async (req, res) => {
         if (progress < 0) {
             progress = 0;
         }
-        const progressPercentage = progress.toFixed(18);
-        return res.status(200).json({
-            status: 200,
-            message: 'Bonding curve progress fetched successfully.',
-            data: {
-                token_address: token.token_address,
-                progress: progressPercentage
-            }
-        });
+        return progress.toFixed(18);
+
     } catch (error) {
         console.error(error);
-        return res.status(500).json({ status: 500, error: error.message });
+        throw error;
     }
 };
 
@@ -176,7 +166,7 @@ exports.getKingOfTheHill = async (req, res) => {
     }
 };
 
-//graph data 
+//graph data
 exports.getGraphData = async (req, res) => {
     try {
         const { token_id } = req.query;
@@ -235,13 +225,15 @@ exports.getGraphData = async (req, res) => {
         return res.status(500).json({ status: 500, error: error.message });
     }
 };
+
 //get the  king of hill progress
-exports.getKingOfTheHillPercentage = async (req, res) => {
+exports.getKingOfTheHillPercentage = async (token_address) => {
+
     try {
-        const { token_address } = req.body;
+
         const kingOfTheHill = await CoinCreated.findOne({ token_address: token_address })
         if (!kingOfTheHill) {
-            return res.status(404).json({ message: 'No King of the Hill found.' });
+            throw ({ message: 'No King of the Hill found.' });
         }
 
         // Calculate the percentage for the King of the Hill
@@ -253,19 +245,12 @@ exports.getKingOfTheHillPercentage = async (req, res) => {
         if (kingProgress < 0) {
             kingProgress = 0;
         }
-        kingProgress = kingProgress.toFixed(18);
+        console.log("kingProgress", kingProgress.toFixed(18))
+        return kingProgress.toFixed(18);
 
-        return res.status(200).json({
-            status: 200,
-            message: 'King of the Hill fetched successfully.',
-            data: {
-                token_address: kingOfTheHill.token_address,
-                king_progress: kingProgress
-            }
-        });
     } catch (error) {
         console.error(error);
-        return res.status(500).json({ status: 500, error: error.message });
+        throw error;
     }
 };
 
@@ -496,6 +481,7 @@ exports.postLaunchTrade = async (req, res, user, token, type, amount, account_ty
     await updateUserHoldings(user, token, type, amount);
 
     triggerTradeNotification(user, token, type, amount);
+    tradeNotificationPusher(user, token, type, amount);
 
     return res.status(200).json({ status: 201, message: 'Trade created successfully.', data: newTrade, token });
 };
@@ -581,4 +567,37 @@ const triggerTradeNotification = (user, token, type, amount) => {
     };
 
     pusher.trigger('trades-channel', 'trade-initiated', tradeNotification);
+};
+const tradeNotificationPusher = (user, token, type, amount) => {
+    // 1. Retrieve Data Asynchronously (Assuming Async Operations)
+    const promises = [
+        this.getKingOfTheHillPercentage(token.token_address),
+        this.getBondingCurveProgress(token.token_address),
+        this.getTrades(token.id),
+        topHolders(token.address)
+    ];
+
+    Promise.all(promises)
+        .then(results => {
+            const [koh_percentage, bonding_curve_percentage, latestTrades, topHolder] = results;
+
+            // 2. Construct Notification Data
+            const percentageData = {
+                user_name: user.user_name,
+                coin_photo: token.image,
+                token_address: token.token_address,
+                user_image: user.profile_photo,
+                king_of_the_hill_per: koh_percentage,
+                bonding_curve_percentage: bonding_curve_percentage,
+                latestTrades: latestTrades,
+                topHolders: topHolder
+            };
+
+            // 3. Trigger Pusher Notification
+            pusher.trigger('percentage-chanel', 'new-percentage', percentageData);
+        })
+        .catch(error => {
+            console.error('Error fetching data for notification:', error);
+            // Implement error handling (e.g., fallback values, retry logic)
+        });
 };
