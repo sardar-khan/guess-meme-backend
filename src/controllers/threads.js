@@ -51,7 +51,7 @@ exports.createThread = async (req, res) => {
                 user_profile: user.profile_photo,
             };
 
-            pusher.trigger("threads-channel", "new-reply", pusherData);
+            pusher.trigger("threads-channel", "reply", pusherData);
             user.unread_notifications += 1;
             await user.save();  // Save the updated unread notification count
             console.log("Unread notifications count:", user.unread_notifications);
