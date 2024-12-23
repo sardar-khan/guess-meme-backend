@@ -453,12 +453,37 @@ exports.viewCoinAginstId = async (req, res) => {
     try {
         const { token_id } = req.params;
         console.log("token_id", token_id)
-        const token = await coins_created.findById(token_id).populate('creator', 'user_name profile_photo')
-        return res.status(200).json({
-            status: 200,
-            message: 'Token fetched successfully.',
-            data: token
-        });
+        const token = await coins_created.findById(token_id).populate('creator', 'user_name profile_photo');
+        const soldAmount = await Trade.aggregate([
+            { $match: { token_id: token._id, type: 'sell' } },
+            { $group: { _id: null, totalSold: { $sum: "$amount" } } }
+        ]);
+        const now = new Date();
+        let trust_score = await calculateTrustScore(token.creator.id);
+        if (token.timer < now) {
+            return res.status(200).json({
+                status: 200,
+                message: 'Token fetched successfully.',
+                data: token
+            });
+        } else {
+            return res.status(200).json({
+                status: 200,
+                message: 'Token fetched successfully.',
+                data: {
+                    _id: token._id,
+                    name: token.metadata?.name,
+                    market_cap: soldAmount.length ? soldAmount[0].totalSold : 0,
+                    trust_score: trust_score,
+                    status: token?.status,
+                    creator: token.creator,
+                    time: token.time
+                },
+                // status: token.status,
+                // threadsCount: threadsCount,
+                // latestThread: latestThread || null
+            });
+        }
     } catch (error) {
         console.error(error);
         return res.status(200).json({ status: 500, error: error.message });
