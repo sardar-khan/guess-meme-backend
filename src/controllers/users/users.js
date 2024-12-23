@@ -508,7 +508,8 @@ exports.viewUser = async (req, res) => {
         const user = await User.findById(user_id)
             .populate({
                 path: 'coins_created',
-                select: 'name image token_address description market_cap ticker time'
+                select: 'name image token_address description market_cap ticker time',
+                options: { sort: { time: -1 } }
             }).populate({
                 path: 'following', // Populate following users
                 select: 'user_name profile_photo wallet_address address' // Customize the fields you want for followers
@@ -545,7 +546,7 @@ exports.viewUser = async (req, res) => {
         }));
 
         // Filter out any null entries resulting from missing coin details
-        const filteredCoinsHeldDetails = coinsHeldDetails.filter(coin => coin !== null);
+        const filteredCoinsHeldDetails = coinsHeldDetails.filter(coin => coin !== null).sort((a, b) => new Date(b.time) - new Date(a.time));;
         // Format followers and following details with count and image
         const followingDetails = user.following.map(following => ({
             username: following.username,
