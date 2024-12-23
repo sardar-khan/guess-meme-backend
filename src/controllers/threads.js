@@ -138,13 +138,14 @@ exports.toggleLike = async (req, res) => {
             // Like the thread/reply
             thread.likes.push({ user_id: user.id });
             await thread.save();
-            // Notify via Pusher (like event)
-            pusher.trigger(`private-thread-${thread_id}`, 'like', {
+            const like_pusher_data = {
                 message: `${user.user_name} liked your thread.`,
                 thread_id: thread_id,
                 token_id: thread.token_id,
                 user_profile: user.profile_photo,
-            });
+            };
+            // Notify via Pusher (like event)
+            pusher.trigger('like-pusher', 'like', like_pusher_data);
             user.unread_notifications += 1;
             await user.save();  // Save the updated unread notification count
             console.log("Unread notifications count:", user.unread_notifications);

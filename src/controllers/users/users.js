@@ -819,13 +819,13 @@ exports.toggleFollow = async (req, res) => {
             targetUser.followers_count += 1;
 
             await targetUser.save();
-            // Trigger Pusher event for follow
-            pusher.trigger('follow-user', 'follow', {
+            const pusher_data = {
                 message: `${currentUser.user_name} started following you.`,
                 userId: currentUser._id,
                 user_photo: currentUser.profile_photo
-
-            });
+            }
+            // Trigger Pusher event for follow
+            pusher.trigger('follow-user', 'follow', pusher_data);
             currentUser.unread_notifications += 1;
             await currentUser.save();
             console.log("count", currentUser.unread_notifications)
