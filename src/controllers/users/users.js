@@ -820,9 +820,11 @@ exports.toggleFollow = async (req, res) => {
 
             await targetUser.save();
             // Trigger Pusher event for follow
-            pusher.trigger(`private-user-${user_id}`, 'follow', {
+            pusher.trigger('follow-user', 'follow', {
                 message: `${currentUser.user_name} started following you.`,
                 userId: currentUser._id,
+                user_photo: currentUser.profile_photo
+
             });
             currentUser.unread_notifications += 1;
             await currentUser.save();

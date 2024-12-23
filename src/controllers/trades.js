@@ -480,7 +480,7 @@ exports.postLaunchTrade = async (req, res, user, token, type, amount, account_ty
 
     await updateUserHoldings(user, token, type, amount);
 
-    triggerTradeNotification(user, token, type, amount);
+    triggerTradeNotification(user, token, type, amount, account_type);
     tradeNotificationPusher(user, token, type, amount);
 
     return res.status(200).json({ status: 201, message: 'Trade created successfully.', data: newTrade, token });
@@ -557,7 +557,7 @@ const updateUserHoldings = async (user, token, type, amount) => {
     await user.save();
 };
 // Trigger trade notifications
-const triggerTradeNotification = (user, token, type, amount) => {
+const triggerTradeNotification = (user, token, type, amount, account_type) => {
     const tradeNotification = {
         user_name: user.user_name,
         action: `${type} ${amount} Sol of ${token.name}`,
@@ -565,8 +565,12 @@ const triggerTradeNotification = (user, token, type, amount) => {
         token_address: token.token_address,
         user_image: user.profile_photo,
     };
-
-    pusher.trigger('trades-channel', 'trade-initiated', tradeNotification);
+    if (account_type === 'solana') {
+        pusher.trigger('solana-trades-channel', 'solana-trade-initiated', tradeNotification);
+    }
+    if (account_type === 'ethereum' || account_type === 'polygon') {
+        pusher.trigger('eth-trades-channel', 'eth-trade-initiated', tradeNotification);
+    }
 };
 const tradeNotificationPusher = (user, token, type, amount) => {
     // 1. Retrieve Data Asynchronously (Assuming Async Operations)

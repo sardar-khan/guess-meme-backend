@@ -200,7 +200,6 @@ async function checkHiddenCoins() {
     // Deploy expired hidden coins
     const expiredCoins = await CoinCreated.find({ coin_status: false, timer: { $lte: now } });
     for (const coin of expiredCoins) {
-        console.log("iam het me")
         const creator = await User.findById(coin.creator);
         const type = creator.wallet_address?.[0]?.blockchain;
         const deploymentRequest = await CoinDeploymentRequest.findOne({ coin_id: coin._id });
@@ -233,7 +232,13 @@ async function checkHiddenCoins() {
                 description: coin.description,
                 name: coin.name
             }
-            pusher.trigger('coin-created-channel', 'coin-created', tradeNotification)
+            if (type === 'solana') {
+                pusher.trigger('coin-created-solana', 'coin-created-solana', tradeNotification)
+            }
+            if (type === 'ethereum' || type === 'polygon') {
+                pusher.trigger('coin-created-eth', 'coin-created-eth', tradeNotification)
+            }
+            // pusher.trigger('coin-created-channel', 'coin-created', tradeNotification)
             // console.log("here", creator)
             await processBuyRequests(coin, type, creator)
         } catch (error) {
