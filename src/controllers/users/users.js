@@ -508,12 +508,14 @@ exports.topHolders = async (token_address) => {
 
         // Populate user details for the top holders
         const holdersWithDetails = await Promise.all(topHolders.map(async (holder) => {
-            const user = await User.findById(holder._id, 'user_name profile_photo');
+            const user = await User.findById(holder._id, 'user_name profile_photo wallet_address.address');
+            const walletAddress = user?.wallet_address?.at(0)?.address;
             return {
                 user_name: user ? user.user_name : 'Unknown',
                 profile_photo: user ? user.profile_photo : '',
                 amount: holder.totalAmount,
-                address: coin.token_address
+                address: coin.token_address,
+                wallet_address: walletAddress
             };
         }));
 
@@ -740,7 +742,7 @@ exports.metadata = async (req, res) => {
 exports.topThreeCoins = async (req, res) => {
     try {
         const { type } = req.params; // Get the account type (solana or ethereum) from the route parameter
-        if (!type || !['solana', 'ethereum'].includes(type)) {
+        if (!type || !['solana', 'ethereum', 'sepolia', 'bsc'].includes(type)) {
             return res.status(400).json({
                 success: false,
                 message: "Invalid account type. Please use 'solana' or 'ethereum'."

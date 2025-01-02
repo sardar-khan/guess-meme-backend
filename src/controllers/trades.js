@@ -4,7 +4,7 @@ const User = require("../models/users");
 const pusher = require('../../src/config/pusher');
 const { getTokenLargestAccounts, marketCapPolygon } = require("../web3/test");
 const buyers_requests = require("../models/buyers_requests");
-const { buyTokensOnBlockchain } = require("../web3/tokens");
+const { buyTokensOnBlockchain, getPrice } = require("../web3/tokens");
 const { buyWithAddress, initializeUserATA } = require("../web3/solana/buyTokens");
 const { buyOnTron } = require("../web3/tron/tronTrades");
 const { mintaddy, wallet } = require('../web3/solana/config');
@@ -27,7 +27,7 @@ exports.createTrade = async (req, res) => {
         } else {
             console.log("here", token, type);
 
-            return this.postLaunchTrade(req, res, user, token, type, amount, account_type, transaction_hash);
+            return this.postLaunchTrade(req, res, user, token, type, amount, token_amount, account_type, transaction_hash);
         }
     } catch (error) {
         console.error(error);
@@ -170,44 +170,46 @@ exports.getKingOfTheHill = async (req, res) => {
 exports.getGraphData = async (req, res) => {
     try {
         const { token_id } = req.query;
-        // Validate input
+
         if (!token_id) {
             return res.status(400).json({ error: 'token_id is required' });
         }
-        // Get the current date and the start of the year
+
         const now = new Date();
         const startOfYear = new Date(now.getFullYear(), 0, 1);
+
         // Query trades within the specified date range
         const trades = await Trade.find({
             token_id: token_id,
             created_at: { $gte: startOfYear, $lte: now }
         }).sort({ created_at: 1 });
 
-        // Check if trades are available
         if (trades.length === 0) {
             return res.status(404).json({ status: 404, error: 'No trades found for the specified token and date range' });
         }
 
-        // Process trades to calculate daily statistics
         const dailyData = {};
 
         trades.forEach(trade => {
             const date = trade.created_at.toISOString().split('T')[0];
+            const x = trade.amount; // Amount of SOL purchased
+            const tokensObtained = 1073000191 - (32190005730 / (30 + x)); // Bonding curve formula
+            const pricePerToken = x / tokensObtained; // Calculate token price
+
             if (!dailyData[date]) {
                 dailyData[date] = {
-                    open: trade.amount,
-                    high: trade.amount,
-                    low: trade.amount,
-                    close: trade.amount
+                    open: pricePerToken,
+                    high: pricePerToken,
+                    low: pricePerToken,
+                    close: pricePerToken
                 };
             } else {
-                dailyData[date].high = Math.max(dailyData[date].high, trade.amount);
-                dailyData[date].low = Math.min(dailyData[date].low, trade.amount);
-                dailyData[date].close = trade.amount;
+                dailyData[date].high = Math.max(dailyData[date].high, pricePerToken);
+                dailyData[date].low = Math.min(dailyData[date].low, pricePerToken);
+                dailyData[date].close = pricePerToken;
             }
         });
 
-        // Ensure opening price is correctly set for each day
         const result = Object.keys(dailyData).map(date => ({
             time: date,
             open: dailyData[date].open,
@@ -226,6 +228,7 @@ exports.getGraphData = async (req, res) => {
     }
 };
 
+
 //get the  king of hill progress
 exports.getKingOfTheHillPercentage = async (token_address) => {
 
@@ -235,7 +238,7 @@ exports.getKingOfTheHillPercentage = async (token_address) => {
         if (!kingOfTheHill) {
             throw ({ message: 'No King of the Hill found.' });
         }
-
+        console.log("kingOfTheHill.max_supply ", kingOfTheHill.max_supply)
         // Calculate the percentage for the King of the Hill
         let kingProgress = (kingOfTheHill.max_supply / 314500000000000) * 100;
         if (kingProgress > 100) {
@@ -428,7 +431,7 @@ exports.preLaunchTrade = async (req, res, user, token, type, amount, token_amoun
     }
 };
 //popst launch trade
-exports.postLaunchTrade = async (req, res, user, token, type, amount, account_type, transaction_hash) => {
+exports.postLaunchTrade = async (req, res, user, token, type, amount, account_type, token_amount, transaction_hash) => {
 
     let supply = token.max_supply;
     let token_address = token?.token_address;
@@ -437,11 +440,18 @@ exports.postLaunchTrade = async (req, res, user, token, type, amount, account_ty
         return res.status(400).json({ message: 'Invalid token max supply.' });
     }
 
-    let token_cap;
+    let token_cap, token_price;
     if (account_type === 'solana') {
-        token_cap = await getTokenLargestAccounts(token_address);
-    } if (account_type === 'ethereum') {
-        token_cap = await marketCapPolygon(token_address);
+        token_cap = await getTokenLargestAccounts(token_address, token_amount);
+
+        // const tokensObtained = 1073000191 - (32190005730 / (30 + token_amount)); // Bonding curve formula
+        // token_price = token_amount / tokensObtained; // Calculate token price
+
+    } if (account_type === 'ethereum' || account_type === 'bsc' || account_type === 'sepolia') {
+        token_cap = await marketCapPolygon(token_address, token_amount);
+        // const EthtokensObtained = await getPrice(token_address, token_amount);
+        // token_price = EthtokensObtained;
+
     }
     const marketCap = token_cap.market_cap;
     if (type === 'buy') {
@@ -568,8 +578,14 @@ const triggerTradeNotification = (user, token, type, amount, account_type) => {
     if (account_type === 'solana') {
         pusher.trigger('solana-trades-channel', 'solana-trade-initiated', tradeNotification);
     }
-    if (account_type === 'ethereum' || account_type === 'polygon') {
+    else if (account_type === 'ethereum' || account_type === 'polygon') {
         pusher.trigger('eth-trades-channel', 'eth-trade-initiated', tradeNotification);
+    }
+    else if (account_type === 'bsc') {
+        pusher.trigger('bsc-trades-channel', 'bsc-trade-initiated', tradeNotification);
+    }
+    else if (account_type === 'sepolia') {
+        pusher.trigger('sepolia-trades-channel', 'sepolia-trade-initiated', tradeNotification);
     }
 };
 const tradeNotificationPusher = (user, token, type, amount) => {

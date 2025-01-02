@@ -25,7 +25,7 @@ const corsOptions = {
 const pusher = require('./config/pusher')
 const CoinCreated = require('./models/coin_created'); // Adjust the path as needed
 const CoinDeploymentRequest = require('./models/coins_deploy_request');
-const { deployTokenOnBlockchain, buyTokensOnBlockchain, transferTokensBasedOnAmount, transferEthToAdmin, transferMatic } = require('./web3/tokens');
+const { deployTokenOnBlockchain, buyTokensOnBlockchain, transferTokensBasedOnAmount, transferEthToAdmin, transferMatic, getPrice } = require('./web3/tokens');
 const buyers_requests = require('./models/buyers_requests');
 const { getLatestTradeAndCoin, getKingOfTheHillPercentage, getBondingCurveProgress, getTrades } = require('./controllers/trades');
 const User = require('./models/users');
@@ -49,6 +49,8 @@ const { getTokenLargestAccounts, marketCapPolygon } = require('./web3/test');
 const Trade = require('./models/trades');
 const { createReadStream } = require('fs');
 const { topHolders } = require('./controllers/users/users');
+const { deployTokenOnSepolia, buyTokensOnSepolia } = require('./web3/sepolia/sp_tokens');
+const { deployTokenOnBsc, buyTokensOnBsc } = require('./web3/BSC/bscToken');
 
 // Use routes
 app.use('/notifications', notificationRoutes);
@@ -105,6 +107,22 @@ async function deployToken(coin, type) {
             totalSupply: coin.max_supply
         })
     }
+    else if (type === 'sepolia') {
+        console.log("sepolia")
+        return await deployTokenOnSepolia({
+            name: coin.name,
+            symbol: 'SP',
+            totalSupply: coin.max_supply
+        });
+    }
+    else if (type === 'bsc') {
+        console.log("bsc")
+        return await deployTokenOnBsc({
+            name: coin.name,
+            symbol: 'bsc',
+            totalSupply: coin.max_supply
+        });
+    }
     throw new Error(`Unsupported blockchain type: ${type}`);
 }
 
@@ -114,6 +132,7 @@ async function processBuyRequests(coin, type, creator) {
     const requests = await buyers_requests.find({ token_id: coin._id, status: 'pending' });
     if (!requests.length) return;
     let supply = coin.max_supply;
+    let token_cap, token_price;
     console.log("type", requests, type, "supply", supply)
     for (const req of requests) {
         try {
@@ -121,17 +140,36 @@ async function processBuyRequests(coin, type, creator) {
             if (type === 'ethereum' || type === 'polygon') {
 
                 buyTxHash = await buyTokensOnBlockchain(coin.token_address, req.amount);
+                token_cap = await marketCapPolygon(coin.token_address, req.amount);
+                // const EthtokensObtained = await getPrice(coin.token_address, req.amount);
+                // token_price = EthtokensObtained;
+
+            }
+            else if (type === 'bsc') {
+                buyTxHash = await buyTokensOnBsc(coin.token_address, req.amount);
+                token_cap = await marketCapPolygon(coin.token_address, req.amount);
+            }
+            else if (type === 'sepolia') {
+                buyTxHash = await buyTokensOnSepolia(coin.token_address, req.amount)
+                token_cap = await marketCapPolygon(coin.token_address, req.amount);
             } else if (type === 'solana') {
                 const userAta = await initializeUserATA(wallet.payer, coin.token_address, mintaddy);
                 buyTxHash = await buyWithAddress(userAta);
+                token_cap = await getTokenLargestAccounts(coin.token_address, req.amount);
+
+                // const tokensObtained = 1073000191 - (32190005730 / (30 + req.amount)); // Bonding curve formula
+                // token_price = req.amount / tokensObtained; // Calculate token price
             } else if (type === 'tron') {
                 buyTxHash = await buyOnTron(coin.token_address, req.amount)
             }
             req.status = 'approved';
             req.transaction_hash = buyTxHash.transactionHash;
+            const marketCap = token_cap.market_cap;
             await req.save();
             // Update the supply based on the amount bought
+
             coin.max_supply = supply + parseFloat(req.amount);
+            coin.market_cap = marketCap;
             await coin.save();
             // Check if the token supply crossed the threshold for "King of the Hill"
             if (coin.max_supply >= process.env.HALF_MARK) {
@@ -238,6 +276,12 @@ async function checkHiddenCoins() {
             if (type === 'ethereum' || type === 'polygon') {
                 pusher.trigger('coin-created-eth', 'coin-created-eth', tradeNotification)
             }
+            if (type === 'bsc') {
+                pusher.trigger('coin-created-bsc', 'coin-created-bsc', tradeNotification)
+            }
+            if (type === 'sepolia') {
+                pusher.trigger('coin-created-sepolia', 'coin-created-sepolia', tradeNotification)
+            }
             // pusher.trigger('coin-created-channel', 'coin-created', tradeNotification)
             // console.log("here", creator)
             await processBuyRequests(coin, type, creator)
@@ -258,7 +302,7 @@ app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
 
-//getTokenLargestAccounts("5GLQbrPr7G8HnXPY4dXESRSB8SMiLa6pbCnYKT8YnaRJ")//
+// getTokenLargestAccounts("2mX5ZKUdCzM6ewGs29rBDepCQvGSR6PRxhdoF2YQ9z65", 3000000000)//
 // create('Fresh Token', 'FT', 'http://localhost:5000/user/metadata/67077e41d45a7d48dbd15975', 100);
 // transferEthToAdmin(0.01)
 // transferMatic();

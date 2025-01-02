@@ -11,7 +11,7 @@ const { getBondingCurve, virtualTokenAmount } = require('./tokens');
 const { Keypair, Connection, PublicKey } = require("@solana/web3.js");
 const { programId, connection, wallet } = require('./solana/config');
 const { IDL } = require('@coral-xyz/anchor/dist/cjs/native/system');
-exports.getTokenLargestAccounts = async (token_address) => {
+exports.getTokenLargestAccounts = async (token_address, amount) => {
     //const  = "8bsS13GunLcPhzUji5PxJBDmx2usyn7p9UJcguahtumB";
     console.log(":token address", token_address)
     const url = process.env.REACT_APP_HELEIUS
@@ -36,21 +36,16 @@ exports.getTokenLargestAccounts = async (token_address) => {
 
         if (response.ok) {
 
-            const result = await response.json()
-            console.log("result", result, parseFloat(result?.result?.value[0]?.uiAmount))
-            const total_tokens = 1000000000;
-
-            const soldTokens = total_tokens - parseFloat(result?.result?.value[0]?.uiAmount);
-            console.log("tokens from bc", soldTokens)
-            // setBondingTokens(result?.result?.value[0]?.uiAmount);
+            // const result = await response.json()
+            // console.log("result", result, parseFloat(result?.result?.value[0]?.uiAmount))
             const res = await tokenAgainstSol(
                 token_address, //token_address
-                soldTokens
+                amount
             )
             console.log("tokenprice in sol", res)
-            const tokensInSol = parseFloat(res?.tokenPriceInSol)?.toFixed(2);
+            const tokensInSol = parseFloat(res?.tokenPriceInSol)?.toFixed(6);
             const priceInUsd = await fetchPrice();
-            console.log('gg', priceInUsd)
+            console.log('gg', priceInUsd.solPrice)
             const marketCap = tokensInSol * priceInUsd.solPrice;
             console.log("market_cap", marketCap)
             return { market_cap: marketCap }
@@ -62,7 +57,7 @@ exports.getTokenLargestAccounts = async (token_address) => {
 }
 
 
-const reteriveTokenInfo = async (taddress) => {
+const reteriveTokenInfo = async (taddress, amount) => {
     // window.Buffer = buffer.Buffer
 
     const provider = new AnchorProvider(connection, wallet, {
@@ -93,7 +88,6 @@ const reteriveTokenInfo = async (taddress) => {
     const virtualSolReservesStr = virtualSolReserves.toString()
     const realTokenReservesStr = realTokenReserves.toString()
     const tokenTotalSupplyStr = tokenTotalSupply.toString()
-
     // Logging the specific properties in a formatted string
     const formattedOutput = {
         virtualTokenReserves: virtualTokenReservesStr,
@@ -105,6 +99,9 @@ const reteriveTokenInfo = async (taddress) => {
         complete: complete,
     }
 
+
+
+
     //console.log('virtual rese', formattedOutput)
     return formattedOutput
 }
@@ -113,32 +110,37 @@ const reteriveTokenInfo = async (taddress) => {
 
 //token price in sol
 
-const tokenAgainstSol = async (taddress, tokenamt) => {
+const tokenAgainstSol = async (taddress, amount) => {
     try {
 
-        console.log("params", taddress, tokenamt)
-
-        // const tokenamt = tokenToSmallestUnit(parseInt(amount), 6)
-        // console.log("token", tokenamt)
+        // const amount = tokenToSmallestUnit(parseInt(amount), 6)
+        // console.log("token", amount)
         // window.Buffer = buffer.Buffer
 
 
-        const data = await reteriveTokenInfo(taddress)
-        console.log("datra", data)
-        //token price buy
-        const tokenPriceInLamport =
-            parseFloat(tokenamt * parseFloat(data?.virtualSolReserves)) /
-            parseFloat(parseFloat(data?.virtualTokenReserves) - tokenamt)
-
-        console.log("tokenPriceLamport", tokenPriceInLamport)
+        const data = await reteriveTokenInfo(taddress, amount);
+        const virtualSolReserves = BigInt(data?.virtualSolReserves);
+        const virtualTokenReserves = BigInt(data?.virtualTokenReserves);
+        const oneSOLInLamports = BigInt(Math.floor(amount * web3.LAMPORTS_PER_SOL));
+        const k = virtualSolReserves * virtualTokenReserves;
+        const tokenAmountBN = BigInt(Math.floor(amount * 1_000_000)); // Assuming 6 decimal tokens
+        console.log("Tokens in smallest unit:", tokenAmountBN);
+        const tokenPriceInLamport = (oneSOLInLamports * virtualSolReserves) / virtualTokenReserves;
+        const tokenPriceInSol = Number(tokenPriceInLamport) / 1_000_000_000;
+        // SOL price for given tokens
+        const buySolAgainstTokens = Math.abs(Number(
+            virtualSolReserves - (k / (virtualTokenReserves - tokenAmountBN))
+        ));
+        const sellSolAgainstTokens = Math.abs(Number(
+            (k / (virtualTokenReserves + tokenAmountBN)) - virtualSolReserves
+        ));
 
         return {
-            //tokenInfo: data,
-            tokenPriceInSol: tokenPriceInLamport,
+            tokensbuy: buySolAgainstTokens / 1_000_000_000, // Convert lamports to SOL
+            tokensell: sellSolAgainstTokens / 1_000_000_000, // Convert lamports to SOL
+            tokenPriceInSol
+        };
 
-
-            //solPer1Token:parseFloat(1/tokenAgainstSol)
-        }
     } catch (error) {
         console.log('error while fetching sell token price', error)
     }
@@ -254,4 +256,3 @@ exports.marketCapPolygon = async (token_address) => {
     }
 }
 //
-

@@ -24,12 +24,11 @@ const UserSchema = new Schema({
         blockchain: {
             type: String,
             required: true,
-            enum: ['ethereum', 'tron', 'solana', 'polygon']
+            enum: ['ethereum', 'tron', 'solana', 'polygon', 'sepolia', 'bsc']
         },
         address: {
             type: String,
-            required: true,
-            unique: true
+            required: true
         }
     }],
     trust_score: {

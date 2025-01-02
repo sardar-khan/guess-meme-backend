@@ -52,6 +52,7 @@ exports.createThread = async (req, res) => {
             };
 
             pusher.trigger("threads-channel", "reply", pusherData);
+            pusher.trigger("threads-channel", "new-reply", pusherData);
             user.unread_notifications += 1;
             await user.save();  // Save the updated unread notification count
             console.log("Unread notifications count:", user.unread_notifications);
@@ -79,7 +80,7 @@ exports.createThread = async (req, res) => {
 exports.getThreads = async (req, res) => {
     const { token_id } = req.params;
     const page = parseInt(req.query.page) || 1; // Current page number, default is 1
-    const limit = parseInt(req.query.limit) || 10; // Number of items per page, default is 10
+    const limit = parseInt(req.query.limit) || 40; // Number of items per page, default is 10
 
     try {
         const totalThreads = await Thread.countDocuments({ token_id });

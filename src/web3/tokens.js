@@ -92,7 +92,10 @@ async function sellTokensOnBlockchain(tokenAddress, amount) {
         const tokenContract = new ethers.Contract(tokenAddress, tokenAbi, signer);
 
         console.log("Approving tokens for sale");
-        const tokensToSell = ethers.parseUnits(amount.toString(), 18); // Tokens to sell
+        const payableAmount = await factoryContract.buyQuote(tokenAddress, amount);
+        const fee = await factoryContract.calculateBuyFee(tokenAddress, amount);
+        const ethToPay = payableAmount + fee;
+        const tokensToSell = ethers.parseUnits(ethToPay.toString(), 18); // Tokens to sell
         console.log("Approving tokens for afetr sale", tokenAddress, amount);
         const approvalTx = await tokenContract.approve(CONTRACT_ADDRESS, tokensToSell);
         await approvalTx.wait();
@@ -163,6 +166,18 @@ async function transferMatic() {
     }
 }
 
+async function getPrice(tokenAddress, amount) {
+    try {
+        const formattedAmount = ethers.parseUnits(amount.toString(), 18);
+
+        const payableAmount = await factoryContract.buyQuote(tokenAddress, formattedAmount);
+        console.log("payableAmount", payableAmount)
+        return payableAmount
+    } catch (error) {
+        console.log("errr", error)
+        throw error.message
+    }
+}
 
 
-module.exports = { deployTokenOnBlockchain, transferMatic, transferEthToAdmin, virtualTokenAmount, buyTokensOnBlockchain, sellTokensOnBlockchain, getBondingCurve };
+module.exports = { deployTokenOnBlockchain, getPrice, transferMatic, transferEthToAdmin, virtualTokenAmount, buyTokensOnBlockchain, sellTokensOnBlockchain, getBondingCurve };
