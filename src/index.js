@@ -299,7 +299,7 @@ async function checkHiddenCoins() {
 setInterval(checkHiddenCoins, 1 * 60 * 1000);
 checkHiddenCoins();
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`Server running on Port ${PORT}`);
 });
 
 // getTokenLargestAccounts("2mX5ZKUdCzM6ewGs29rBDepCQvGSR6PRxhdoF2YQ9z65", 3000000000)//
