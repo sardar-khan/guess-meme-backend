@@ -442,7 +442,7 @@ exports.postLaunchTrade = async (req, res, user, token, type, amount, account_ty
 
     let token_cap, token_price;
     if (account_type === 'solana') {
-        console.log("solana")
+        console.log("solana", token_amount, token_amount)
         token_cap = await getTokenLargestAccounts(token_address, token_amount);
         console.log("market cap", token_cap.market_cap)
         // const tokensObtained = 1073000191 - (32190005730 / (30 + token_amount)); // Bonding curve formula
