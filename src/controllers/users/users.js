@@ -742,7 +742,7 @@ exports.metadata = async (req, res) => {
 exports.topThreeCoins = async (req, res) => {
     try {
         const { type } = req.params; // Get the account type (solana or ethereum) from the route parameter
-        if (!type || !['solana', 'ethereum', 'sepolia', 'bsc'].includes(type)) {
+        if (!type || !['solana', 'ethereum', 'polygon', 'bsc'].includes(type)) {
             return res.status(400).json({
                 success: false,
                 message: "Invalid account type. Please use 'solana' or 'ethereum'."

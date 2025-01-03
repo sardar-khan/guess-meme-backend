@@ -98,7 +98,7 @@ exports.getKingOfTheHill = async (req, res) => {
         const { type } = req.params; // Extract the type (solana or ethereum) from the route parameter
         console.log("type", type)
         // Validate type
-        if (!type || !['solana', 'ethereum'].includes(type)) {
+        if (!type || !['solana', 'ethereum', 'polygon', 'bsc'].includes(type)) {
             return res.status(400).json({
                 status: 400,
                 message: "Invalid type. Please use 'solana' or 'ethereum'."
@@ -447,7 +447,7 @@ exports.postLaunchTrade = async (req, res, user, token, type, account_type, amou
         // const tokensObtained = 1073000191 - (32190005730 / (30 + token_amount)); // Bonding curve formula
         // token_price = token_amount / tokensObtained; // Calculate token price
 
-    } if (account_type === 'ethereum' || account_type === 'bsc' || account_type === 'sepolia') {
+    } if (account_type === 'ethereum' || account_type === 'bsc' || account_type === 'polygon') {
         token_cap = await marketCapPolygon(token_address, token_amount);
         // const EthtokensObtained = await getPrice(token_address, token_amount);
         // token_price = EthtokensObtained;
@@ -460,11 +460,13 @@ exports.postLaunchTrade = async (req, res, user, token, type, account_type, amou
         console.log("after buy", supply);
         token.market_cap = marketCap;
     } else if (type === 'sell') {
+        console.log("type", type, token.max_supply, supply, amount, marketCap);
         token.max_supply = supply - parseFloat(amount);
         if (token.max_supply <= 0) {
             token.max_supply = 0;
         }
         token.market_cap = marketCap;
+        console.log("marketCap", marketCap);
     }
     const newTrade = new Trade({
         account: user._id,
@@ -495,41 +497,6 @@ exports.postLaunchTrade = async (req, res, user, token, type, account_type, amou
     tradeNotificationPusher(user, token, type, amount);
 
     return res.status(200).json({ status: 201, message: 'Trade created successfully.', data: newTrade, token });
-};
-//call from blockchain
-const processBuy = async (req, res, token, amount, account_type) => {
-    console.log("aara hn")
-    let buyTokens, transactionHash, success, error;
-    if (account_type === 'ethereum' || account_type === 'polygon') {
-        buyTokens = await buyTokensOnBlockchain(token.token_address, amount);
-        console.log("success", buyTokens.success,);
-        transactionHash = buyTokens.transactionHash;
-        success = buyTokens.success
-        if (success == false) {
-            return res.status(401).json({ status: 401, message: buyTokens.error })
-        }
-    } else if (account_type === 'solana') {
-        console.log("solo")
-        const userAta = await initializeUserATA(wallet.payer, token.token_address, mintaddy);
-        buyTokens = await buyWithAddress(userAta);
-        transactionHash = buyTokens.transactionHash;
-        console.log("transactionHashin", transactionHash)
-        success = buyTokens.success
-        if (success == false) {
-            return res.status(401).json({ status: 401, message: buyTokens.error })
-        }
-    }
-    else if (account_type === 'tron') {
-        console.log("tron")
-        buyTokens = await buyOnTron(token.token_address, amount); // Assuming tron_address is provided
-        transactionHash = buyTokens.transactionHash;
-        success = buyTokens.success;
-        if (success == false) {
-            return res.status(401).json({ status: 401, message: buyTokens.error })
-        }
-    }
-
-    return { transactionHash: transactionHash, success: success }
 };
 
 // Update market cap based on the blockchain type
@@ -564,7 +531,6 @@ const updateUserHoldings = async (user, token, type, amount) => {
         // Add new coin holding
         user.coins_held.push({ coinId: token._id, amount: type === 'buy' ? parseFloat(amount) : 0 });
     }
-    console.log("userr", user.coins_held);
     await user.save();
 };
 // Trigger trade notifications
@@ -579,14 +545,14 @@ const triggerTradeNotification = (user, token, type, amount, account_type) => {
     if (account_type === 'solana') {
         pusher.trigger('solana-trades-channel', 'solana-trade-initiated', tradeNotification);
     }
-    else if (account_type === 'ethereum' || account_type === 'polygon') {
+    else if (account_type === 'ethereum') {
         pusher.trigger('eth-trades-channel', 'eth-trade-initiated', tradeNotification);
     }
     else if (account_type === 'bsc') {
         pusher.trigger('bsc-trades-channel', 'bsc-trade-initiated', tradeNotification);
     }
-    else if (account_type === 'sepolia') {
-        pusher.trigger('sepolia-trades-channel', 'sepolia-trade-initiated', tradeNotification);
+    else if (account_type === 'polygon') {
+        pusher.trigger('polygon-trades-channel', 'polygon-trade-initiated', tradeNotification);
     }
 };
 const tradeNotificationPusher = (user, token, type, amount) => {

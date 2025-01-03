@@ -88,13 +88,15 @@ app.post("/getimageurl", auth, upload.single('profile_photo'), async (req, res) 
 // Helper function to deploy tokens based on blockchain type
 async function deployToken(coin, type) {
     console.log("type", type)
-    if (type === 'ethereum' || type === 'polygon') {
+    if (type === 'ethereum') {
+        console.log("sepolia")
         console.log("ethereum")
-        return await deployTokenOnBlockchain({
+        return await deployTokenOnSepolia({
             name: coin.name,
-            symbol: 'ST',
+            symbol: 'SP',
             totalSupply: coin.max_supply
         });
+
     }
     else if (type === 'solana') {
         console.log("my so", coin.name)
@@ -107,11 +109,11 @@ async function deployToken(coin, type) {
             totalSupply: coin.max_supply
         })
     }
-    else if (type === 'sepolia') {
-        console.log("sepolia")
-        return await deployTokenOnSepolia({
+    else if (type === 'polygon') {
+        console.log("polygon")
+        return await deployTokenOnBlockchain({
             name: coin.name,
-            symbol: 'SP',
+            symbol: 'ST',
             totalSupply: coin.max_supply
         });
     }
@@ -137,10 +139,10 @@ async function processBuyRequests(coin, type, creator) {
     for (const req of requests) {
         try {
             let buyTxHash;
-            if (type === 'ethereum' || type === 'polygon') {
-
-                buyTxHash = await buyTokensOnBlockchain(coin.token_address, req.amount);
+            if (type === 'ethereum') {
+                buyTxHash = await buyTokensOnSepolia(coin.token_address, req.amount)
                 token_cap = await marketCapPolygon(coin.token_address, req.amount);
+
                 // const EthtokensObtained = await getPrice(coin.token_address, req.amount);
                 // token_price = EthtokensObtained;
 
@@ -149,8 +151,8 @@ async function processBuyRequests(coin, type, creator) {
                 buyTxHash = await buyTokensOnBsc(coin.token_address, req.amount);
                 token_cap = await marketCapPolygon(coin.token_address, req.amount);
             }
-            else if (type === 'sepolia') {
-                buyTxHash = await buyTokensOnSepolia(coin.token_address, req.amount)
+            else if (type === 'polygon') {
+                buyTxHash = await buyTokensOnBlockchain(coin.token_address, req.amount);
                 token_cap = await marketCapPolygon(coin.token_address, req.amount);
             } else if (type === 'solana') {
                 const userAta = await initializeUserATA(wallet.payer, coin.token_address, mintaddy);
@@ -273,14 +275,14 @@ async function checkHiddenCoins() {
             if (type === 'solana') {
                 pusher.trigger('coin-created-solana', 'coin-created-solana', tradeNotification)
             }
-            if (type === 'ethereum' || type === 'polygon') {
+            if (type === 'ethereum') {
                 pusher.trigger('coin-created-eth', 'coin-created-eth', tradeNotification)
             }
             if (type === 'bsc') {
                 pusher.trigger('coin-created-bsc', 'coin-created-bsc', tradeNotification)
             }
-            if (type === 'sepolia') {
-                pusher.trigger('coin-created-sepolia', 'coin-created-sepolia', tradeNotification)
+            if (type === 'polygon') {
+                pusher.trigger('coin-created-polygon', 'coin-created-polygon', tradeNotification)
             }
             // pusher.trigger('coin-created-channel', 'coin-created', tradeNotification)
             // console.log("here", creator)
