@@ -25,9 +25,9 @@ exports.createTrade = async (req, res) => {
         if (token.coin_status === false) {
             return this.preLaunchTrade(req, res, user, token, type, amount, token_amount);
         } else {
-            console.log("here", token, type);
+            console.log("here", token_id, type, amount, account_type, token_amount, transaction_hash);
 
-            return this.postLaunchTrade(req, res, user, token, type, amount, token_amount, account_type, transaction_hash);
+            return this.postLaunchTrade(req, res, user, token, type, account_type, amount, token_amount, transaction_hash);
         }
     } catch (error) {
         console.error(error);
@@ -431,11 +431,10 @@ exports.preLaunchTrade = async (req, res, user, token, type, amount, token_amoun
     }
 };
 //popst launch trade
-exports.postLaunchTrade = async (req, res, user, token, type, amount, account_type, token_amount, transaction_hash) => {
-
+exports.postLaunchTrade = async (req, res, user, token, type, account_type, amount, token_amount, transaction_hash) => {
     let supply = token.max_supply;
     let token_address = token?.token_address;
-    console.log("supply", supply, token?.token_address)
+    console.log("supply", supply, token?.token_address, account_type, token_amount)
     if (isNaN(supply)) {
         return res.status(400).json({ message: 'Invalid token max supply.' });
     }
