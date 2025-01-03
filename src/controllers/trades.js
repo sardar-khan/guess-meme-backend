@@ -464,6 +464,7 @@ exports.postLaunchTrade = async (req, res, user, token, type, account_type, amou
         if (token.max_supply <= 0) {
             token.max_supply = 0;
         }
+        token.market_cap = marketCap;
     }
     const newTrade = new Trade({
         account: user._id,
