@@ -11,7 +11,7 @@ function generateUsername(walletAddress, blockchain) {
 
     // Optionally, truncate or modify the hash to fit username requirements
     // For example, take the first 10 characters of the Base64 hash
-    const username = base64Hash.substring(0, 10);
+    const username = base64Hash.substring(0, 15);
 
     return username;
 }

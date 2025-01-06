@@ -10,7 +10,7 @@ const UserSchema = new Schema({
     user_name: {
         type: String,
         unique: true,
-        maxlength: 10
+        maxlength: 15
     },
     profile_photo: {
         type: String,
