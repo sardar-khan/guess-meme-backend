@@ -44,14 +44,7 @@ app.get("/", (req, res) => {
 });
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 const notificationRoutes = require('./routes/notification');
-const { deployOnTron, buyOnTron } = require('./web3/tron/tronTrades');
 const { getTokenLargestAccounts, marketCapPolygon } = require('./web3/test');
-const Trade = require('./models/trades');
-const { createReadStream } = require('fs');
-const { topHolders } = require('./controllers/users/users');
-const { deployTokenOnSepolia, buyTokensOnSepolia } = require('./web3/sepolia/sp_tokens');
-const { deployTokenOnBsc, buyTokensOnBsc } = require('./web3/BSC/bscToken');
-
 // Use routes
 app.use('/notifications', notificationRoutes);
 
@@ -84,149 +77,13 @@ app.post("/getimageurl", auth, upload.single('profile_photo'), async (req, res) 
         res.status(500).json({ error: "The Image URL is not created" });
     }
 });
-
-// Helper function to deploy tokens based on blockchain type
-async function deployToken(coin, type) {
-    console.log("type", type)
-    if (type === 'ethereum') {
-        console.log("sepolia")
-        console.log("ethereum")
-        return await deployTokenOnSepolia({
-            name: coin.name,
-            symbol: 'SP',
-            totalSupply: coin.max_supply
-        });
-
-    }
-    else if (type === 'solana') {
-        console.log("my so", coin.name)
-        return await create(coin.name, 'FT', `/user/metadata/${coin.id}`, 100);
-    }
-    else if (type === 'tron') {
-        return await deployOnTron({
-            name: coin.name,
-            symbol: 'TRX',
-            totalSupply: coin.max_supply
-        })
-    }
-    else if (type === 'polygon') {
-        console.log("polygon")
-        return await deployTokenOnBlockchain({
-            name: coin.name,
-            symbol: 'ST',
-            totalSupply: coin.max_supply
-        });
-    }
-    else if (type === 'bsc') {
-        console.log("bsc")
-        return await deployTokenOnBsc({
-            name: coin.name,
-            symbol: 'bsc',
-            totalSupply: coin.max_supply
-        });
-    }
-    throw new Error(`Unsupported blockchain type: ${type}`);
-}
-
-// Helper function to handle buyer requests
-async function processBuyRequests(coin, type, creator) {
-    console.log("Here2")
-    const requests = await buyers_requests.find({ token_id: coin._id, status: 'pending' });
-    if (!requests.length) return;
-    let supply = coin.max_supply;
-    let token_cap, token_price;
-    console.log("type", requests, type, "supply", supply)
-    for (const req of requests) {
-        try {
-            let buyTxHash;
-            if (type === 'ethereum') {
-                buyTxHash = await buyTokensOnSepolia(coin.token_address, req.amount)
-                token_cap = await marketCapPolygon(coin.token_address, req.amount);
-
-                // const EthtokensObtained = await getPrice(coin.token_address, req.amount);
-                // token_price = EthtokensObtained;
-
-            }
-            else if (type === 'bsc') {
-                buyTxHash = await buyTokensOnBsc(coin.token_address, req.amount);
-                token_cap = await marketCapPolygon(coin.token_address, req.amount);
-            }
-            else if (type === 'polygon') {
-                buyTxHash = await buyTokensOnBlockchain(coin.token_address, req.amount);
-                token_cap = await marketCapPolygon(coin.token_address, req.amount);
-            } else if (type === 'solana') {
-                const userAta = await initializeUserATA(wallet.payer, coin.token_address, mintaddy);
-                buyTxHash = await buyWithAddress(userAta);
-                token_cap = await getTokenLargestAccounts(coin.token_address, req.amount);
-
-                // const tokensObtained = 1073000191 - (32190005730 / (30 + req.amount)); // Bonding curve formula
-                // token_price = req.amount / tokensObtained; // Calculate token price
-            } else if (type === 'tron') {
-                buyTxHash = await buyOnTron(coin.token_address, req.amount)
-            }
-            req.status = 'approved';
-            req.transaction_hash = buyTxHash.transactionHash;
-            const marketCap = token_cap.market_cap;
-            await req.save();
-            // Update the supply based on the amount bought
-
-            coin.max_supply = supply + parseFloat(req.amount);
-            coin.market_cap = marketCap;
-            await coin.save();
-            // Check if the token supply crossed the threshold for "King of the Hill"
-            if (coin.max_supply >= process.env.HALF_MARK) {
-                console.log("After threshold, King of the Hill:", coin.max_supply);
-
-                // Set the King of the Hill status
-                coin.is_king_of_the_hill = {
-                    value: true,
-                    time: Date.now()  // Record the time when the coin becomes King of the Hill
-                };
-                coin.badge = true;  // Assign the badge
-            } else {
-                coin.is_king_of_the_hill.value = false;  // Set to false if below threshold
-            }
-
-            // Save the updated coin information
-            await coin.save();
-            const newTrade = new Trade({
-                account: creator.id,
-                token_id: coin._id,
-                type: 'buy',
-                amount: req.amount,
-                token_amount: req.amount,
-                account_type: type,
-                transaction_hash: req.transaction_hash
-            });
-            await newTrade.save();
-            const coinIndex = creator?.coins_held.findIndex(coin => coin.coinId.toString() === coin._id.toString());
-            if (coinIndex > -1) {
-                // Update amount for existing holding
-                if (type === 'buy') {
-                    creator.coins_held[coinIndex].amount += parseFloat(amount);
-                } else if (type === 'sell') {
-                    creator.coins_held[coinIndex].amount = Math.max(0, creator.coins_held[coinIndex].amount - parseFloat(amount));
-                }
-            } else {
-                // Add new coin holding
-                creator.coins_held.push({ coinId: coin._id, amount: type === 'buy' ? parseFloat(amount) : 0 });
-            }
-            console.log("userr", req, creator);
-            await req.save();
-
-        } catch (error) {
-            console.error(`Failed to process buy request for user ${req.user_id}`, error);
-        }
-    }
-}
-
 // Main function to check and handle hidden coins
 async function checkHiddenCoins() {
     console.log("Checking hidden coins...");
     const now = new Date();
 
     // Notify users with hidden coins
-    const hiddenCoins = await CoinCreated.find({ coin_status: false, timer: { $gt: now } });
+    const hiddenCoins = await CoinCreated.find({ status: 'created', timer: { $gt: now } });
     for (const coin of hiddenCoins) {
         const timeLeft = Math.max(0, Math.floor((coin.timer - now) / 1000 / 60));
         console.log(`Notification: Your coin "${coin.name}" is still hidden. Time left: ${timeLeft} minutes.`);
@@ -238,64 +95,24 @@ async function checkHiddenCoins() {
     }
 
     // Deploy expired hidden coins
-    const expiredCoins = await CoinCreated.find({ coin_status: false, timer: { $lte: now } });
+    const expiredCoins = await CoinCreated.find({ status: 'created', timer: { $lte: now } });
     for (const coin of expiredCoins) {
         const creator = await User.findById(coin.creator);
         const type = creator.wallet_address?.[0]?.blockchain;
-        const deploymentRequest = await CoinDeploymentRequest.findOne({ coin_id: coin._id });
-        console.log("start ", type)
-        if (!deploymentRequest || deploymentRequest.status === 'approved') continue;
-
+        console.log("here")
         try {
-            console.log("start deploying", type)
-            const txHash = await deployToken(coin, type);
+
+            console.log("coin deploying ......")
             coin.status = 'deployed';
-            coin.transaction_hash = txHash.hash;
-            // type === 'ethereum' ? "0x76148Cd0a2e51C54B2950a23Dd18aFDF98239e4F" :
-            // type === 'polygon' ? "0x76148Cd0a2e51C54B2950a23Dd18aFDF98239e4F" :
-            coin.token_address = txHash.token_address;
             await coin.save();
 
-            deploymentRequest.status = 'approved';
-            await deploymentRequest.save();
-            const tradeNotification = {
-                user_name: creator.user_name,
-                action: `created ${coin.name}`,
-                coin_photo: coin.image,
-                date: coin.time,
-                token_id: coin._id,
-                ticker: coin.ticker,
-                replies: 0,
-                status: coin.status,
-                market_cap: coin.market_cap,
-                bonding_curve: coin.bonding_curve,
-                description: coin.description,
-                name: coin.name
-            }
-            if (type === 'solana') {
-                pusher.trigger('coin-created-solana', 'coin-created-solana', tradeNotification)
-            }
-            if (type === 'ethereum') {
-                pusher.trigger('coin-created-eth', 'coin-created-eth', tradeNotification)
-            }
-            if (type === 'bsc') {
-                pusher.trigger('coin-created-bsc', 'coin-created-bsc', tradeNotification)
-            }
-            if (type === 'polygon') {
-                pusher.trigger('coin-created-polygon', 'coin-created-polygon', tradeNotification)
-            }
-            // pusher.trigger('coin-created-channel', 'coin-created', tradeNotification)
-            // console.log("here", creator)
-            await processBuyRequests(coin, type, creator)
+
         } catch (error) {
             console.error(`Failed to deploy token for ${coin.name}`, error);
             coin.status = 'failed';  // Set the status to false if deployment fails due to insufficient funds
             await coin.save();  // Save the updated coin status
         }
     }
-
-    // Update the status of deployed coins
-    await CoinCreated.updateMany({ coin_status: false, timer: { $lte: now } }, { $set: { coin_status: true } });
 }
 // Schedule the check every 5 minutes
 setInterval(checkHiddenCoins, 1 * 60 * 1000);
@@ -304,8 +121,9 @@ app.listen(PORT, () => {
     console.log(`Server running on Port ${PORT}`);
 });
 
-// getTokenLargestAccounts("2mX5ZKUdCzM6ewGs29rBDepCQvGSR6PRxhdoF2YQ9z65", 3000000000)//
+//getTokenLargestAccounts("4qk5ovKNmtVUZyfdKfbqcUufzZ6Zcjv3rBdWVSmn8vC2", 1)//
 // create('Fresh Token', 'FT', 'http://localhost:5000/user/metadata/67077e41d45a7d48dbd15975', 100);
 // transferEthToAdmin(0.01)
 // transferMatic();
 // transferSol('4sdSJgUYH1tREGZrSy2QFDZWqMUjD32gM9B6EryK4Mau', '3bYzjrW1FXSdT35h2kCeSQbYqJkfi7yDqZDds9G7gd8y', 0.02)
+//marketCapPolygon("0x0C8b5e837901688Ae05cEb942474F10B51C93707", 1)

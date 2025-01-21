@@ -14,7 +14,7 @@ exports.addWallets = async (req, res) => {
     try {
         const existingUser = await User.findOne({ 'wallet_address.address': address, 'wallet_address.blockchain': blockchain });
         if (existingUser) {
-            console.log("existingUser", existingUser.token)
+            console.log("existingUser", existingUser)
             if (existingUser.token) {
                 try {
                     // Verify the token
@@ -220,24 +220,20 @@ exports.heldCoin = async (req, res) => {
 };
 //create coin
 exports.createCoin = async (req, res) => {
-    const { name, ticker, description, image, twitter_link, telegram_link, website, bonding_curve, metadata, max_buy_percentage, amount, token_amount, transaction_hash, timer, fee } = req.body;
+    const { name, ticker, description, image, twitter_link, telegram_link, website, bonding_curve, max_buy_percentage, amount, token_address, timer, hash } = req.body;
     const wallet_address = req.user.address;
     try {
         // Find the user
         const user = await User.findOne({ 'wallet_address.address': wallet_address })
-
         if (!user) {
             return res.status(404).json({ message: "User not found." });
         }
-
         // Check if coin with same token_address already exists
         const existingCoin = await coins_created.findOne({
             $or: [
-                { name: name },
-                { ticker: ticker }
+                { token_address: token_address }
             ]
         });
-
         if (existingCoin) {
             return res.status(400).json({ message: "This coin address is already exists." });
         }
@@ -252,7 +248,7 @@ exports.createCoin = async (req, res) => {
                 twitter_link,
                 telegram_link,
                 website,
-                token_address: null,
+                token_address,
                 max_supply: 0,
                 max_buy_percentage,
                 bonding_curve,
@@ -265,24 +261,19 @@ exports.createCoin = async (req, res) => {
                     website: website
                 },
                 timer,
-                amount,
                 status: 'created',
                 is_created: true,
             });
-
+            if (hash !== null && amount !== null && amount !== "" && amount !== 0) {
+                console.log("here", req, res, user, newCoin, 'buy', user.wallet_address[0].blockchain, amount, amount, hash);
+                await postLaunchTrade(req, res, user, newCoin, 'buy', user.wallet_address[0].blockchain, amount, amount, hash, endpoint = false)
+            }
             // Save the new coin to the database
             await newCoin.save();
-
             // Add the new coin to the user's coins_created array
             user.coins_created.push(newCoin);
-            const deployment_request = new coin_deployment_request({
-                coin_id: newCoin._id, // Referencing the created coin
-                user_address: wallet_address,
-                fee: fee, // Placeholder, replace with actual fee logic if needed
-                status: 'pending', // Request is pending for admin approval
-            });
-            await deployment_request.save();
             await user.save();
+
             const tradeNotification = {
                 user_name: user.user_name,
                 user_id: user.id,
@@ -297,7 +288,8 @@ exports.createCoin = async (req, res) => {
                 bonding_curve: newCoin.bonding_curve,
                 ticker: newCoin.ticker,
                 description: newCoin.description,
-                name: newCoin.name
+                name: newCoin.name,
+                token_address: newCoin.token_address
 
 
                 // user_image: user.profile_photo
@@ -318,8 +310,8 @@ exports.viewCoin = async (req, res) => {
     const sortBy = req.query.sortBy || 'time';
     const order = req.query.order === 'asc' ? 1 : -1;
     const type = req.query.type;
-
-    // Define sorting options
+    const status = req.query.status;
+    console.log("status", status)
     const sortOptions = {
         market_cap: { market_cap: order },
         reply_count: { threadsCount: order },
@@ -328,102 +320,85 @@ exports.viewCoin = async (req, res) => {
         default: { time: -1 }
     };
 
-    // Determine sort field
     const sortField = sortOptions[sortBy] || sortOptions.default;
 
     try {
-        // Build the filter object based on query parameters
-        const filter = {};
+        const filter = { status };
         if (req.query.creator) {
             filter.creator = req.query.creator;
         }
-
-        // Fetch filtered coin data
-        const filteredCoins = await coins_created.find().populate({
+        const filteredCoins = await coins_created.find(filter).populate({
             path: 'creator',
             select: 'user_name profile_photo wallet_address',
-            match: type ? { 'wallet_address.blockchain': type } : {}  // Match the blockchain in the wallet_address array
-        })
-        // Filter coins with a creator
-        const coins = filteredCoins.filter((coin) => coin.creator);
-
-        // If no coins match the type, respond with an error
-        if (type && coins.length === 0) {
-            return res.status(404).json({
-                status: 404,
-                message: `Coin with type "${type}" doesn't exist.`
-            });
-        }
-        // Fetch additional details (market cap, thread count, and latest thread)
-        const coinsWithDetails = await Promise.all(coins.map(async (coin) => {
-            if (!coin.creator) {
-                return null
-            }
-
-            let trust_score = await calculateTrustScore(coin.creator.id);
-            const soldAmount = await Trade.aggregate([
-                { $match: { token_id: coin._id, type: 'sell' } },
-                { $group: { _id: null, totalSold: { $sum: "$amount" } } }
-            ]);
-
-            const threadsCount = await Thread.countDocuments({ token_id: coin._id });
-            const latestThread = await Thread.findOne({ token_id: coin._id })
-                .sort({ createdAt: -1 });
-            const now = new Date();
-
-            // Check timer to determine the coin's visibility
-            if (coin.timer < now) {
-                return {
-                    coin,
-                    market_cap: soldAmount.length ? soldAmount[0].totalSold : 0,
-                    trust_score: trust_score,
-                    status: coin?.status,
-                    threadsCount: threadsCount,
-                    latestThread: latestThread || null
-                };
-            } else {
-                return {
-                    coin: {
-                        _id: coin._id,
-                        name: coin.metadata?.name,
-                        market_cap: soldAmount.length ? soldAmount[0].totalSold : 0,
-                        trust_score: trust_score,
-                        status: coin?.status,
-                        creator: coin.creator,
-                        time: coin.time
-                    },
-                    status: coin.status,
-                    threadsCount: threadsCount,
-                    latestThread: latestThread || null
-                };
-            }
-        }));
-        // Apply sorting
-        console.log("sortBy", sortBy, "Order", order)
-        // Apply sorting
-        coinsWithDetails.sort((a, b) => {
-            // If sorting by 'time' (coin creation time)
-            if (sortBy === 'time') {
-                const dateA = a.coin.time ? new Date(a.coin.time) : new Date(0);
-                const dateB = b.coin.time ? new Date(b.coin.time) : new Date(0);
-                return order === 1 ? dateA - dateB : dateB - dateA;
-            }
-
-            // Apply sorting for other fields
-            if (sortBy === 'market_cap') {
-                return sortField.market_cap ? (order === 1 ? a.market_cap - b.market_cap : b.market_cap - a.market_cap) : 0;
-            } else if (sortBy === 'reply_count') {
-                return sortField.threadsCount ? (order === 1 ? a.threadsCount - b.threadsCount : b.threadsCount - a.threadsCount) : 0;
-            } else if (sortBy === 'last_reply') {
-                const dateA = a.latestThread ? new Date(a.latestThread.createdAt) : new Date(0);
-                const dateB = b.latestThread ? new Date(b.latestThread.createdAt) : new Date(0);
-                return order === 1 ? dateA - dateB : dateB - dateA;
-            }
-            return 0;
+            match: type ? { 'wallet_address.blockchain': type } : {},
         });
 
+        const coins = filteredCoins.filter((coin) => coin.creator);
 
-        // Pagination
+        if (type && coins.length === 0) {
+            return res.status(200).json({
+                status: 200,
+                message: 'No coins found according to filters.',
+                data: coins,
+            });
+        }
+
+        const coinsWithDetails = await Promise.all(
+            coins.map(async (coin) => {
+                if (!coin.creator) {
+                    return null;
+                }
+
+                let trust_score = await calculateTrustScore(coin.creator.id);
+                const soldAmount = await Trade.aggregate([
+                    { $match: { token_id: coin._id, type: 'sell' } },
+                    { $group: { _id: null, totalSold: { $sum: "$amount" } } }
+                ]);
+
+                const threadsCount = await Thread.countDocuments({ token_id: coin._id });
+                const latestThread = await Thread.findOne({ token_id: coin._id }).sort({ createdAt: -1 });
+                const now = new Date();
+                console.log("statusxxxx", coin.status == 'created', coin.status)
+                if (status === 'deployed') {
+                    console.log("one", coin)
+                    return {
+                        coin: coin,
+                        market_cap: soldAmount.length ? soldAmount[0].totalSold : 0,
+                        trust_score,
+                        status: coin?.status,
+                        threadsCount,
+                        latestThread: latestThread || null
+                    };
+                } else if (status == 'created') {
+                    console.log("created")
+                    return {
+                        coin: {
+                            _id: coin._id,
+                            name: coin.metadata?.name,
+                            market_cap: soldAmount.length ? soldAmount[0].totalSold : 0,
+                            trust_score,
+                            status: coin?.status,
+                            creator: coin.creator,
+                            time: coin.time
+                        },
+                        status: coin.status,
+                        threadsCount,
+                        latestThread: latestThread || null
+                    };
+                }
+            })
+        );
+
+        // Shuffle coins
+        const shuffleArray = (array) => {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        };
+
+        shuffleArray(coinsWithDetails);
+
         const totalCoins = coinsWithDetails.length;
         const totalPages = Math.ceil(totalCoins / limit);
 
@@ -431,16 +406,15 @@ exports.viewCoin = async (req, res) => {
         const endIndex = page * limit;
         const paginatedCoins = coinsWithDetails.slice(startIndex, endIndex);
 
-        // Handle case where no coins are found
         if (!paginatedCoins.length) {
             return res.status(404).json({ message: 'No coins found.' });
         }
-        // Respond with paginated and sorted coin data
+
         return res.status(200).json({
             status: 200,
             message: 'Coins fetched successfully.',
             data: paginatedCoins,
-            totalPages: totalPages,
+            totalPages,
             currentPage: page
         });
     } catch (error) {
@@ -448,6 +422,7 @@ exports.viewCoin = async (req, res) => {
         return res.status(500).json({ status: 500, error: error.message });
     }
 };
+
 //view the token against the token _address
 exports.viewCoinAginstId = async (req, res) => {
     try {
@@ -489,7 +464,7 @@ exports.viewCoinAginstId = async (req, res) => {
         return res.status(200).json({ status: 500, error: error.message });
     }
 }
-//top 20 holders 
+//top 20 holders
 exports.topHolders = async (token_address) => {
     try {
         // Find the coin by token address
@@ -671,13 +646,14 @@ exports.addReview = async (req, res) => {
 };
 const coin_deployment_request = require("../../models/coins_deploy_request");
 const { getTokenLargestAccounts } = require("../../web3/test");
+const { postLaunchTrade } = require("../trades");
 // Read the default image file
 // const defaultImagePath = path.join(__dirname, '../../../uploads/default.jpg');
 // const defaultImage = {
 //     data: fs.readFileSync(defaultImagePath),
 //     contentType: 'image/jpeg'
 // };
-//get user trust score 
+//get user trust score
 async function calculateTrustScore(creatorId) {
     try {
         // Fetch creator's coins and reviews
@@ -868,7 +844,7 @@ exports.toggleFollow = async (req, res) => {
     }
 };
 
-//check user follow yet or not 
+//check user follow yet or not
 exports.canFollow = async (req, res) => {
     const wallet_address = req.user.address; // Assuming the user's wallet address is in req.user
     const { user_id } = req.body; // ID of the user to check

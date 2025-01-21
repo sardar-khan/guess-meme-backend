@@ -10,7 +10,7 @@ const { buyOnTron } = require("../web3/tron/tronTrades");
 const { mintaddy, wallet } = require('../web3/solana/config');
 const { topHolders } = require("./users/users");
 exports.createTrade = async (req, res) => {
-    const { token_id, type, amount, account_type, token_amount, transaction_hash } = req.body;
+    const { token_id, type, amount, account_type, token_amount, transaction_hash, endpoint = true } = req.body;
     const account = req.user.address;
 
     try {
@@ -22,13 +22,9 @@ exports.createTrade = async (req, res) => {
         if (!user || !token) {
             return res.status(404).json({ message: 'User or Token not found.' });
         }
-        if (token.coin_status === false) {
-            return this.preLaunchTrade(req, res, user, token, type, amount, token_amount);
-        } else {
-            console.log("here", token_id, type, amount, account_type, token_amount, transaction_hash);
+        console.log("here", token_id, type, amount, account_type, token_amount, transaction_hash);
 
-            return this.postLaunchTrade(req, res, user, token, type, account_type, amount, token_amount, transaction_hash);
-        }
+        return this.postLaunchTrade(req, res, user, token, type, account_type, amount, token_amount, transaction_hash, endpoint);
     } catch (error) {
         console.error(error);
         return res.status(500).json({ status: 500, error: error.message });
@@ -227,6 +223,127 @@ exports.getGraphData = async (req, res) => {
         return res.status(500).json({ status: 500, error: error.message });
     }
 };
+//i want that user can search graph on the basis of time lie 5minutes,30 minutes ,hour, 1 day, 5days, 1 month, 3 months, 6 months, 1 year
+exports.getGraphDataa = async (req, res) => {
+    try {
+        const { token_id, time, time_bucket } = req.query;
+
+        if (!token_id || !time || !time_bucket) {
+            return res.status(400).json({ error: 'token_id, time, and time_bucket are required' });
+        }
+
+        const now = new Date();
+        let startTime;
+
+        // Calculate the start time based on the "time" query parameter
+        switch (time) {
+            case '5minutes':
+                startTime = new Date(now.getTime() - 5 * 60000);
+                break;
+            case '30minutes':
+                startTime = new Date(now.getTime() - 30 * 60000);
+                break;
+            case 'hour':
+                startTime = new Date(now.getTime() - 60 * 60000);
+                break;
+            case '1day':
+                startTime = new Date(now.getTime() - 24 * 60 * 60000);
+                break;
+            case '5days':
+                startTime = new Date(now.getTime() - 5 * 24 * 60 * 60000);
+                break;
+            case '1month':
+                startTime = new Date(now.getTime() - 30 * 24 * 60 * 60000);
+                break;
+            case '3months':
+                startTime = new Date(now.getTime() - 90 * 24 * 60 * 60000);
+                break;
+            case '6months':
+                startTime = new Date(now.getTime() - 180 * 24 * 60 * 60000);
+                break;
+            case '1year':
+                startTime = new Date(now.getTime() - 365 * 24 * 60 * 60000);
+                break;
+            default:
+                return res.status(400).json({ error: 'Invalid time parameter' });
+        }
+
+        // Define the time bucket size in milliseconds
+        let bucketSize;
+        switch (time_bucket) {
+            case '1minute':
+                bucketSize = 60 * 1000;
+                break;
+            case '5minutes':
+                bucketSize = 5 * 60 * 1000;
+                break;
+            case '15minutes':
+                bucketSize = 15 * 60 * 1000;
+                break;
+            case '1hour':
+                bucketSize = 60 * 60 * 1000;
+                break;
+            default:
+                return res.status(400).json({ error: 'Invalid time_bucket parameter' });
+        }
+        console.log("startTime", startTime, "token_id", token_id, "bucket", time_bucket)
+        // Aggregation pipeline
+        const trades = await Trade.aggregate([
+            {
+                $match: {
+                    token_id: token_id,
+                    created_at: { $gte: startTime, $lte: now }
+                }
+
+            },
+            {
+                $addFields: {
+                    bucketTime: {
+                        $subtract: [
+                            { $toLong: "$created_at" },
+                            { $mod: [{ $toLong: "$created_at" }, bucketSize] }
+                        ]
+                    }
+                }
+            },
+            {
+                $group: {
+                    _id: "$bucketTime",
+                    open: { $first: "$price" },
+                    high: { $max: "$price" },
+                    low: { $min: "$price" },
+                    close: { $last: "$price" }
+                }
+            },
+            {
+                $sort: { _id: 1 }
+            },
+            {
+                $project: {
+                    time: { $toDate: "$_id" },
+                    open: 1,
+                    high: 1,
+                    low: 1,
+                    close: 1,
+                    _id: 0
+                }
+            }
+        ]);
+
+        if (trades.length === 0) {
+            return res.status(404).json({ status: 404, error: 'No trades found for the specified token and date range' });
+        }
+
+        return res.status(200).json({
+            status: 200,
+            data: trades
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ status: 500, error: error.message });
+    }
+};
+
 
 
 //get the  king of hill progress
@@ -431,7 +548,7 @@ exports.preLaunchTrade = async (req, res, user, token, type, amount, token_amoun
     }
 };
 //popst launch trade
-exports.postLaunchTrade = async (req, res, user, token, type, account_type, amount, token_amount, transaction_hash) => {
+exports.postLaunchTrade = async (req, res, user, token, type, account_type, amount, token_amount, transaction_hash, endpoint) => {
     let supply = token.max_supply;
     let token_address = token?.token_address;
     console.log("supply", supply, token?.token_address, account_type, token_amount)
@@ -442,7 +559,7 @@ exports.postLaunchTrade = async (req, res, user, token, type, account_type, amou
     let token_cap, token_price;
     if (account_type === 'solana') {
         console.log("solana", token_amount, token_amount)
-        token_cap = await getTokenLargestAccounts(token_address, token_amount);
+        token_cap = await getTokenLargestAccounts(token_address);
         console.log("market cap", token_cap.market_cap)
         // const tokensObtained = 1073000191 - (32190005730 / (30 + token_amount)); // Bonding curve formula
         // token_price = token_amount / tokensObtained; // Calculate token price
@@ -495,26 +612,18 @@ exports.postLaunchTrade = async (req, res, user, token, type, account_type, amou
 
     triggerTradeNotification(user, token, type, amount, account_type);
     tradeNotificationPusher(user, token, type, amount);
-
-    return res.status(200).json({ status: 201, message: 'Trade created successfully.', data: newTrade, token });
+    if (endpoint) {
+        res.status(201).json({
+            status: 201,
+            message: 'Trade created successfully.',
+            data: newTrade,
+            token
+        });
+    } else {
+        return { status: 201, message: 'Trade created successfully.', data: newTrade, token };
+    }
 };
 
-// Update market cap based on the blockchain type
-const updateMarketCap = async (token, account_type) => {
-    let marketCap;
-    if (account_type === 'ethereum') {
-        const token_cap = await getTokenLargestAccounts(token.token_address);
-        marketCap = token_cap.market_cap;
-    } else if (account_type === 'solana') {
-        const token_cap = await marketCapPolygon(token.token_address);
-        marketCap = token_cap.market_cap;
-    }
-    if (marketCap == NaN) {
-        marketCap = 1
-    }
-    console.log("market cap", marketCap)
-    return marketCap;
-};
 
 // Update user's coin holdings
 const updateUserHoldings = async (user, token, type, amount) => {

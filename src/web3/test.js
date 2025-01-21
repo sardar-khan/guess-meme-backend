@@ -6,12 +6,13 @@ const { AnchorProvider, Program, Wallet } = require('@coral-xyz/anchor');
 const idl = require('../web3/idl.json')
 const bs58 = require("bs58");
 const abi = require('../web3/abi.json');
-const { getBondingCurve, virtualTokenAmount } = require('./tokens');
+const { getBondingCurve, virtualTokenAmount, getPrice } = require('./tokens');
 
 const { Keypair, Connection, PublicKey } = require("@solana/web3.js");
 const { programId, connection, wallet } = require('./solana/config');
 const { IDL } = require('@coral-xyz/anchor/dist/cjs/native/system');
-exports.getTokenLargestAccounts = async (token_address, amount) => {
+exports.getTokenLargestAccounts = async (token_address) => {
+    const amount = 1;
     //const  = "8bsS13GunLcPhzUji5PxJBDmx2usyn7p9UJcguahtumB";
     console.log(":token address", token_address)
     const url = process.env.REACT_APP_HELEIUS
@@ -46,7 +47,8 @@ exports.getTokenLargestAccounts = async (token_address, amount) => {
             const tokensInSol = parseFloat(res?.tokenPriceInSol)?.toFixed(6);
             const priceInUsd = await fetchPrice();
             console.log('gg', priceInUsd.solPrice)
-            const marketCap = tokensInSol * priceInUsd.solPrice;
+            const tokenPriceInUsdt = tokensInSol * priceInUsd.solPrice;
+            const marketCap = tokenPriceInUsdt * 1000000000;
             console.log("market_cap", marketCap)
             return { market_cap: marketCap }
         }
@@ -88,6 +90,10 @@ const reteriveTokenInfo = async (taddress, amount) => {
     const virtualSolReservesStr = virtualSolReserves.toString()
     const realTokenReservesStr = realTokenReserves.toString()
     const tokenTotalSupplyStr = tokenTotalSupply.toString()
+    console.log("virtualTokenReserves", virtualTokenReservesStr,
+        "virtualSolReserves", virtualSolReservesStr,
+        "realTokenReserves", realTokenReservesStr,
+        "tokenTotalSupply", tokenTotalSupplyStr);
     // Logging the specific properties in a formatted string
     const formattedOutput = {
         virtualTokenReserves: virtualTokenReservesStr,
@@ -155,7 +161,7 @@ const fetchPrice = async () => {
 
         const solPrice = response.data.solana.usd;
 
-        console.log("hfds", solPrice)
+        console.log("sol-usd-price", solPrice)
         return { solPrice: solPrice };
     } catch (error) {
         // setError('Error fetching price data');
@@ -230,24 +236,27 @@ const polygonToUsd = async (req, res) => {
 
 }
 //get market cap of the polygon
-exports.marketCapPolygon = async (token_address) => {
+exports.marketCapPolygon = async (token_address, amount) => {
     try {
 
 
-        const result = await getBondingCurve(token_address)
+        // const result = await getBondingCurve(token_address)
 
-        console.log("result", result[2])
-        const bonding_curve = result[2];
-        const total_tokens = result[4];
+        // console.log("result", result[2])
+        // const bonding_curve = result[2];
+        const total_tokens = 1;
 
-        const soldTokens = total_tokens - bonding_curve;
-        console.log("tokens from bc", soldTokens)
-        // setBondingTokens(result?.result?.value[0]?.uiAmount);
-        const res = await virtualTokenAmount()
-        console.log("virtual", res)
-        const tokensInSol = parseFloat(res.virtualTokenAmount)?.toFixed(2);
+        // const soldTokens = total_tokens - bonding_curve;
+        // console.log("tokens from bc", soldTokens)
+        // // setBondingTokens(result?.result?.value[0]?.uiAmount);
+        // const res = await virtualTokenAmount()
+        // console.log("virtual", res)
+        let tokensInSol = await getPrice(token_address, amount);
+        console.log("tokens in sol", tokensInSol.ethToPay)
+        tokensInSol = tokensInSol.ethToPay.toString();
+        console.log("tokens in sol", tokensInSol)
         const priceInUsd = await polygonToUsd();
-        console.log('gg', priceInUsd)
+        console.log('gg', priceInUsd.priceInUsd)
         const marketCap = tokensInSol * priceInUsd.priceInUsd;
         console.log("market_cap", marketCap)
         return { market_cap: marketCap }

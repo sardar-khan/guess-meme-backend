@@ -64,6 +64,6 @@ router.post('/progress-curve-bond', async (req, res) => {
         return res.status(500).json({ status: 500, error: error.message });
     }
 });
-router.get('/graph-data', tradeController.getGraphData);
+router.get('/graph-data', tradeController.getGraphDataa);
 router.get('/lastest-data', tradeController.getLatestTradeAndCoin)
 module.exports = router;

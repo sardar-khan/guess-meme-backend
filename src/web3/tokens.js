@@ -1,6 +1,7 @@
 const { ethers } = require('ethers');
 const abi = require('./abi.json');
-const tokenAbi = require('./tokenAbi.json')
+const tokenAbi = require('./tokenAbi.json');
+const { utils } = require('@project-serum/anchor');
 require('dotenv').config();
 
 const INFURA_URL_TESTNET = process.env.INFURA_URL_TESTNET;
@@ -169,10 +170,30 @@ async function transferMatic() {
 async function getPrice(tokenAddress, amount) {
     try {
         const formattedAmount = ethers.parseUnits(amount.toString(), 18);
+        console.log("formattedAmount", formattedAmount.toString())
+        let payableAmount = await factoryContract.buyQuote(tokenAddress, formattedAmount);
+        const ethToPay = ethers.toBigInt(payableAmount);
+        console.log("Total ETH to pay Onchange:", ethers.formatEther(ethToPay));
+        const tokenAmountBN = BigInt(Math.floor(amount * 1_000_000)); // Assuming 6 decimal tokens
+        const virtualSolReserves = BigInt(2000000000000000000); // SOL reserves in smallest unit
+        const virtualTokenReserves = BigInt(73000000000000000000000000); // Token reserves in smallest unit
+        const k = virtualSolReserves * virtualTokenReserves; // Constant product
 
-        const payableAmount = await factoryContract.buyQuote(tokenAddress, formattedAmount);
-        console.log("payableAmount", payableAmount)
-        return payableAmount
+        // Ensure token amount does not exceed reserves
+        if (tokenAmountBN >= virtualTokenReserves) {
+            throw new Error("Insufficient token reserves for the swap.");
+        }
+
+        // Calculate the amount of SOL received
+        const buySolAgainstTokens = Number(
+            virtualSolReserves - (k / (virtualTokenReserves - tokenAmountBN))
+        );
+
+        console.log("buySolAgainstTokens:", buySolAgainstTokens);
+
+        // payableAmount = parseFloat(ethers.formatUnits(payableAmount, 18));
+        // console.log("payableAmount", payableAmount)
+        return { ethToPay: ethers.formatEther(ethToPay) }
     } catch (error) {
         console.log("errr", error)
         throw error.message
