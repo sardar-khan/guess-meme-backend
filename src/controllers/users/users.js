@@ -379,7 +379,8 @@ exports.viewCoin = async (req, res) => {
                             trust_score,
                             status: coin?.status,
                             creator: coin.creator,
-                            time: coin.time
+                            time: coin.time,
+                            token_address: coin.token_address
                         },
                         status: coin.status,
                         threadsCount,
