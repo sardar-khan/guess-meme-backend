@@ -18,6 +18,7 @@ const CoinCreatedSchema = new Schema({
     max_buy_percentage: { type: Number },
     bonding_curve: { type: String },
     bonding_curve_progress: { type: Number, default: 0 }, // In percentage
+    king_of_hill_percenatge: { type: Number, default: 0 }, // In percentage,
     is_king_of_the_hill: {
         time: { type: Date, default: null },
         value: { type: Boolean, default: false }

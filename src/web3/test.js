@@ -51,7 +51,7 @@ exports.getTokenLargestAccounts = async (token_address) => {
             console.log("market_cap", tokensInSol * priceInUsd.solPrice, tokensInSol, priceInUsd.solPrice)
             const marketCap = tokenPriceInUsdt * 1000000000;
             console.log("market_cap", marketCap)
-            return { market_cap: marketCap }
+            return { market_cap: marketCap, remaining_tokens: res?.remianing_tokens }
         }
     } catch (error) {
         console.error(error);
@@ -108,7 +108,6 @@ const reteriveTokenInfo = async (taddress, amount) => {
 
 
 
-
     //console.log('virtual rese', formattedOutput)
     return formattedOutput
 }
@@ -154,7 +153,8 @@ const tokenAgainstSol = async (taddress, amount) => {
         return {
             tokensbuy: buySolAgainstTokens / 1_000_000_000, // Convert lamports to SOL
             tokensell: sellSolAgainstTokens / 1_000_000_000, // Convert lamports to SOL
-            tokenPriceInSol
+            tokenPriceInSol,
+            remianing_tokens: data?.remainingTokens
         };
 
     } catch (error) {

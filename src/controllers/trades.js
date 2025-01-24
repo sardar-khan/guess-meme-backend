@@ -350,25 +350,20 @@ exports.getKingOfTheHillPercentage = async (token_address) => {
         if (!kingOfTheHill) {
             throw ({ message: 'No King of the Hill found.' });
         }
-        console.log("kingOfTheHill.max_supply ", kingOfTheHill.max_supply)
-        // Calculate the percentage for the King of the Hill
-        let kingProgress = (kingOfTheHill.max_supply / 314500000000000) * 100;
-        if (kingProgress > 100) {
-            kingProgress = 100;
-        }
 
-        if (kingProgress < 0) {
-            kingProgress = 0;
-        }
-        console.log("kingProgress", kingProgress.toFixed(18))
-        return kingProgress.toFixed(18);
+        console.log("kingProgress", kingOfTheHill.king_of_hill_percenatge)
+        return kingOfTheHill.king_of_hill_percenatge;
 
     } catch (error) {
         console.error(error);
         throw error;
     }
 };
+function calculateProgress(currentTokenValue, minValue, maxValue) {
 
+    const progress = ((currentTokenValue - minValue) / (maxValue - minValue)) * 100;
+    return progress.toFixed(2); // Return the progress percentage as a string with 2 decimal places
+}
 //get data of coin and trade latest one
 exports.getLatestTradeAndCoin = async (req, res) => {
     try {
@@ -555,7 +550,7 @@ exports.postLaunchTrade = async (req, res, user, token, type, account_type, amou
     if (account_type === 'solana') {
         console.log("solana", token_amount, token_amount)
         token_cap = await getTokenLargestAccounts(token_address, token_amount);
-        console.log("market cap", token_cap.market_cap)
+        console.log("market cap", token_cap?.market_cap, token_cap?.remaining_tokens)
         // const tokensObtained = 1073000191 - (32190005730 / (30 + token_amount)); // Bonding curve formula
         // token_price = token_amount / tokensObtained; // Calculate token price
 
@@ -570,6 +565,19 @@ exports.postLaunchTrade = async (req, res, user, token, type, account_type, amou
         console.log("buy")
         supply += parseFloat(amount);
         console.log("after buy", supply);
+        console.log("token_cap?.remaining_tokens <= 400000000", token_cap?.remaining_tokens <= 400000000, token_cap?.remaining_tokens, 400000000)
+        if (token_cap?.remaining_tokens <= 400000000) {
+            token.is_king_of_the_hill.value = true;
+            token.is_king_of_the_hill.time = Date.now();
+            token.badge = true;
+        } else {
+            const minValue = 800000000; // 0% progress
+            const maxValue = 400000000; // 100% progress
+            const progress = calculateProgress(token_cap?.remaining_tokens, minValue, maxValue);
+            console.log(`Progress: ${progress}%`);
+            token.kingOfTheHill = progress;
+
+        }
         token.market_cap = marketCap;
     } else if (type === 'sell') {
         console.log("type", type, token.max_supply, supply, amount, marketCap);
@@ -589,16 +597,14 @@ exports.postLaunchTrade = async (req, res, user, token, type, account_type, amou
         account_type,
         transaction_hash: transaction_hash
     });
-    if (token.max_supply >= parseFloat(process.env.HALF_MARK)) {
-        console.log("after threshold", supply);
+    // if (token.max_supply >= parseFloat(process.env.HALF_MARK)) {
+    //     console.log("after threshold", supply);
 
-        // Update King of the Hill
-        token.is_king_of_the_hill.value = true;
-        token.is_king_of_the_hill.time = Date.now();
-        token.badge = true;
-    } else {
-        token.is_king_of_the_hill.value = false;
-    }
+    //     // Update King of the Hill
+
+    // } else {
+    //     token.is_king_of_the_hill.value = false;
+    // }
     await newTrade.save();
     await token.save();
 
