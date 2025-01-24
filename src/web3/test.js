@@ -44,10 +44,11 @@ exports.getTokenLargestAccounts = async (token_address) => {
                 amount
             )
             console.log("tokenprice in sol", res)
-            const tokensInSol = parseFloat(res?.tokenPriceInSol)?.toFixed(6);
+            const tokensInSol = parseFloat(res?.tokenPriceInSol)?.toFixed(10);
             const priceInUsd = await fetchPrice();
             console.log('gg', priceInUsd.solPrice)
             const tokenPriceInUsdt = tokensInSol * priceInUsd.solPrice;
+            console.log("market_cap", tokensInSol * priceInUsd.solPrice, tokensInSol, priceInUsd.solPrice)
             const marketCap = tokenPriceInUsdt * 1000000000;
             console.log("market_cap", marketCap)
             return { market_cap: marketCap }
@@ -132,7 +133,7 @@ const tokenAgainstSol = async (taddress, amount) => {
         const tokenAmountBN = BigInt(Math.floor(amount * 1_000_000)); // Assuming 6 decimal tokens
         console.log("Tokens in smallest unit:", tokenAmountBN);
         const tokenPriceInLamport = (oneSOLInLamports * virtualSolReserves) / virtualTokenReserves;
-        const tokenPriceInSol = Number(tokenPriceInLamport) / 1_000_000_000;
+
         // SOL price for given tokens
         const buySolAgainstTokens = Math.abs(Number(
             virtualSolReserves - (k / (virtualTokenReserves - tokenAmountBN))
@@ -140,6 +141,15 @@ const tokenAgainstSol = async (taddress, amount) => {
         const sellSolAgainstTokens = Math.abs(Number(
             (k / (virtualTokenReserves + tokenAmountBN)) - virtualSolReserves
         ));
+
+        // const tokenPriceInSol = Number(tokenPriceInLamport) / 1_000_000_000;
+
+
+
+
+
+
+        const tokenPriceInSol = buySolAgainstTokens / 1_000_000_000;
 
         return {
             tokensbuy: buySolAgainstTokens / 1_000_000_000, // Convert lamports to SOL

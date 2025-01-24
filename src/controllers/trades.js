@@ -226,118 +226,113 @@ exports.getGraphData = async (req, res) => {
 //i want that user can search graph on the basis of time lie 5minutes,30 minutes ,hour, 1 day, 5days, 1 month, 3 months, 6 months, 1 year
 exports.getGraphDataa = async (req, res) => {
     try {
-        const { token_id, time, time_bucket } = req.query;
+        const { token_id, time } = req.query;
 
-        if (!token_id || !time || !time_bucket) {
-            return res.status(400).json({ error: 'token_id, time, and time_bucket are required' });
+        if (!token_id) {
+            return res.status(400).json({ error: 'token_id is required' });
         }
 
         const now = new Date();
         let startTime;
 
-        // Calculate the start time based on the "time" query parameter
-        switch (time) {
-            case '5minutes':
-                startTime = new Date(now.getTime() - 5 * 60000);
-                break;
-            case '30minutes':
-                startTime = new Date(now.getTime() - 30 * 60000);
-                break;
-            case 'hour':
-                startTime = new Date(now.getTime() - 60 * 60000);
-                break;
-            case '1day':
-                startTime = new Date(now.getTime() - 24 * 60 * 60000);
-                break;
-            case '5days':
-                startTime = new Date(now.getTime() - 5 * 24 * 60 * 60000);
-                break;
-            case '1month':
-                startTime = new Date(now.getTime() - 30 * 24 * 60 * 60000);
-                break;
-            case '3months':
-                startTime = new Date(now.getTime() - 90 * 24 * 60 * 60000);
-                break;
-            case '6months':
-                startTime = new Date(now.getTime() - 180 * 24 * 60 * 60000);
-                break;
-            case '1year':
-                startTime = new Date(now.getTime() - 365 * 24 * 60 * 60000);
-                break;
-            default:
-                return res.status(400).json({ error: 'Invalid time parameter' });
+        // Time range calculation
+        const timeRanges = {
+            '5minutes': 5 * 60000,
+            '30minutes': 30 * 60000,
+            'hour': 60 * 60000,
+            '1day': 24 * 60 * 60000,
+            '5days': 5 * 24 * 60 * 60000,
+            '1month': 30 * 24 * 60 * 60000,
+            '3months': 90 * 24 * 60 * 60000,
+            '6months': 180 * 24 * 60 * 60000,
+            '1year': 365 * 24 * 60 * 60000
+        };
+
+        startTime = new Date(now.getTime() - (timeRanges[time] || 0));
+        if (!timeRanges[time]) {
+            return res.status(400).json({ error: 'Invalid time parameter' });
         }
 
-        // Define the time bucket size in milliseconds
+        // Calculate bucket size based on time range
         let bucketSize;
-        switch (time_bucket) {
-            case '1minute':
-                bucketSize = 60 * 1000;
-                break;
-            case '5minutes':
-                bucketSize = 5 * 60 * 1000;
-                break;
-            case '15minutes':
-                bucketSize = 15 * 60 * 1000;
-                break;
-            case '1hour':
-                bucketSize = 60 * 60 * 1000;
-                break;
-            default:
-                return res.status(400).json({ error: 'Invalid time_bucket parameter' });
+        if (time === '5minutes') {
+            bucketSize = 60 * 1000; // 1 minute
+        } else if (time === '30minutes') {
+            bucketSize = 2 * 60 * 1000; // 2 minutes
+        } else if (time === 'hour') {
+            bucketSize = 5 * 60 * 1000; // 5 minutes
+        } else if (time === '1day') {
+            bucketSize = 15 * 60 * 1000; // 15 minutes
+        } else {
+            bucketSize = 60 * 60 * 1000; // 1 hour
         }
-        console.log("startTime", startTime, "token_id", token_id, "bucket", time_bucket)
-        // Aggregation pipeline
-        const trades = await Trade.aggregate([
-            {
-                $match: {
-                    token_id: token_id,
-                    created_at: { $gte: startTime, $lte: now }
-                }
 
-            },
-            {
-                $addFields: {
-                    bucketTime: {
-                        $subtract: [
-                            { $toLong: "$created_at" },
-                            { $mod: [{ $toLong: "$created_at" }, bucketSize] }
-                        ]
-                    }
-                }
-            },
-            {
-                $group: {
-                    _id: "$bucketTime",
-                    open: { $first: "$price" },
-                    high: { $max: "$price" },
-                    low: { $min: "$price" },
-                    close: { $last: "$price" }
-                }
-            },
-            {
-                $sort: { _id: 1 }
-            },
-            {
-                $project: {
-                    time: { $toDate: "$_id" },
-                    open: 1,
-                    high: 1,
-                    low: 1,
-                    close: 1,
-                    _id: 0
-                }
+        // Calculate the bonding curve price
+        const calculatePrice = (amount) => {
+            const tokensObtained = 1073000191 - (32190005730 / (30 + amount));
+            return amount / tokensObtained;
+        };
+
+        // Get all trades for the period
+        const trades = await Trade.find({
+            token_id: token_id,
+            created_at: { $gte: startTime, $lte: now }
+        }).sort({ created_at: 1 });
+
+        const graphData = [];
+        let currentBucketTime = new Date(startTime);
+        let lastKnownPrice = null; // Initialize with null
+
+        while (currentBucketTime <= now) {
+            const bucketEnd = new Date(currentBucketTime.getTime() + bucketSize);
+
+            // Get trades within this bucket
+            const bucketTrades = trades.filter(trade =>
+                trade.created_at >= currentBucketTime &&
+                trade.created_at < bucketEnd
+            );
+
+            let bucketData;
+
+            if (bucketTrades.length > 0) {
+                // Calculate prices for all trades in bucket
+                const bucketPrices = bucketTrades.map(trade => calculatePrice(trade.amount));
+                bucketData = {
+                    time: currentBucketTime.toISOString(),
+                    open: lastKnownPrice, // Use lastKnownPrice as the opening price
+                    high: Math.max(...bucketPrices),
+                    low: Math.min(...bucketPrices),
+                    close: bucketPrices[bucketPrices.length - 1]
+                };
+                lastKnownPrice = bucketData.close; // Update lastKnownPrice after calculating close
+            } else {
+                // For empty buckets, use last known price
+                bucketData = {
+                    time: currentBucketTime.toISOString(),
+                    open: lastKnownPrice,
+                    high: lastKnownPrice,
+                    low: lastKnownPrice,
+                    close: lastKnownPrice
+                };
             }
-        ]);
 
-        if (trades.length === 0) {
-            return res.status(404).json({ status: 404, error: 'No trades found for the specified token and date range' });
+            graphData.push(bucketData);
+            currentBucketTime = bucketEnd;
         }
 
         return res.status(200).json({
             status: 200,
-            data: trades
+            data: graphData,
+            metadata: {
+                timeRange: time,
+                bucketSizeMinutes: bucketSize / 60000,
+                startTime: startTime.toISOString(),
+                endTime: now.toISOString(),
+                totalBuckets: graphData.length,
+                bucketsWithData: graphData.filter(b => b.hasData).length
+            }
         });
+
     } catch (error) {
         console.error(error);
         return res.status(500).json({ status: 500, error: error.message });
@@ -559,7 +554,7 @@ exports.postLaunchTrade = async (req, res, user, token, type, account_type, amou
     let token_cap, token_price;
     if (account_type === 'solana') {
         console.log("solana", token_amount, token_amount)
-        token_cap = await getTokenLargestAccounts(token_address);
+        token_cap = await getTokenLargestAccounts(token_address, token_amount);
         console.log("market cap", token_cap.market_cap)
         // const tokensObtained = 1073000191 - (32190005730 / (30 + token_amount)); // Bonding curve formula
         // token_price = token_amount / tokensObtained; // Calculate token price

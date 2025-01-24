@@ -311,22 +311,27 @@ exports.viewCoin = async (req, res) => {
     const order = req.query.order === 'asc' ? 1 : -1;
     const type = req.query.type;
     const status = req.query.status;
-    console.log("status", status)
-    const sortOptions = {
-        market_cap: { market_cap: order },
-        reply_count: { threadsCount: order },
-        last_reply: { 'latestThread.createdAt': order },
-        creation_time: { time: order },
-        default: { time: -1 }
-    };
 
-    const sortField = sortOptions[sortBy] || sortOptions.default;
+    const sortFields = ['time', 'market_cap', 'reply_count', 'last_reply'];
 
+    if (sortBy && !sortFields.includes(sortBy)) {
+        return res.status(400).json({
+            status: 400,
+            message: `Invalid sortBy. Allowed values: ${sortFields.join(', ')}`
+        });
+    }
+    console.log("sorted by ", sortBy)
     try {
-        const filter = { status };
+        const filter = {};
+
+        if (status) {
+            filter.status = status;
+        }
+
         if (req.query.creator) {
             filter.creator = req.query.creator;
         }
+
         const filteredCoins = await coins_created.find(filter).populate({
             path: 'creator',
             select: 'user_name profile_photo wallet_address',
@@ -335,19 +340,9 @@ exports.viewCoin = async (req, res) => {
 
         const coins = filteredCoins.filter((coin) => coin.creator);
 
-        if (type && coins.length === 0) {
-            return res.status(200).json({
-                status: 200,
-                message: 'No coins found according to filters.',
-                data: coins,
-            });
-        }
-
         const coinsWithDetails = await Promise.all(
             coins.map(async (coin) => {
-                if (!coin.creator) {
-                    return null;
-                }
+                if (!coin.creator) return null;
 
                 let trust_score = await calculateTrustScore(coin.creator.id);
                 const soldAmount = await Trade.aggregate([
@@ -357,10 +352,8 @@ exports.viewCoin = async (req, res) => {
 
                 const threadsCount = await Thread.countDocuments({ token_id: coin._id });
                 const latestThread = await Thread.findOne({ token_id: coin._id }).sort({ createdAt: -1 });
-                const now = new Date();
-                console.log("statusxxxx", coin.status == 'created', coin.status)
+
                 if (status === 'deployed') {
-                    console.log("one", coin)
                     return {
                         coin: coin,
                         market_cap: soldAmount.length ? soldAmount[0].totalSold : 0,
@@ -369,8 +362,7 @@ exports.viewCoin = async (req, res) => {
                         threadsCount,
                         latestThread: latestThread || null
                     };
-                } else if (status == 'created') {
-                    console.log("created")
+                } else if (status === 'created') {
                     return {
                         coin: {
                             _id: coin._id,
@@ -390,26 +382,41 @@ exports.viewCoin = async (req, res) => {
             })
         );
 
-        // Shuffle coins
-        const shuffleArray = (array) => {
-            for (let i = array.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [array[i], array[j]] = [array[j], array[i]];
+        // Apply sorting based on the sortBy parameter
+        const sortedCoins = coinsWithDetails.sort((a, b) => {
+            switch (sortBy) {
+                case 'market_cap':
+                    return order * (a.market_cap - b.market_cap);
+                case 'reply_count':
+                    return order * (a.threadsCount - b.threadsCount);
+                case 'last_reply': {
+                    const aDate = a.latestThread?.createdAt || 0;
+                    const bDate = b.latestThread?.createdAt || 0;
+                    console.log("aDate", aDate)
+                    return order * (aDate - bDate);
+                }
+                default: // 'time'
+                    return order * ((a.coin.time || 0) - (b.coin.time || 0));
             }
-        };
+        });
 
-        shuffleArray(coinsWithDetails);
+        // Shuffle only if NO sorting and NO order is specified
+        if (!req.query.sortBy && !req.query.order) {
+            const shuffleArray = (array) => {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+            };
+            shuffleArray(sortedCoins);
+        }
 
-        const totalCoins = coinsWithDetails.length;
+        // Pagination
+        const totalCoins = sortedCoins.length;
         const totalPages = Math.ceil(totalCoins / limit);
-
         const startIndex = (page - 1) * limit;
         const endIndex = page * limit;
-        const paginatedCoins = coinsWithDetails.slice(startIndex, endIndex);
-
-        if (!paginatedCoins.length) {
-            return res.status(404).json({ message: 'No coins found.' });
-        }
+        const paginatedCoins = sortedCoins.slice(startIndex, endIndex);
 
         return res.status(200).json({
             status: 200,
@@ -423,7 +430,6 @@ exports.viewCoin = async (req, res) => {
         return res.status(500).json({ status: 500, error: error.message });
     }
 };
-
 //view the token against the token _address
 exports.viewCoinAginstId = async (req, res) => {
     try {
@@ -453,6 +459,7 @@ exports.viewCoinAginstId = async (req, res) => {
                     trust_score: trust_score,
                     status: token?.status,
                     creator: token.creator,
+                    token_address: token.token_address,
                     time: token.time
                 },
                 // status: token.status,
