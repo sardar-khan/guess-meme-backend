@@ -349,6 +349,7 @@ exports.viewCoin = async (req, res) => {
                     { $match: { token_id: coin._id, type: 'sell' } },
                     { $group: { _id: null, totalSold: { $sum: "$amount" } } }
                 ]);
+                console.log("soldAmount", soldAmount)
 
                 const threadsCount = await Thread.countDocuments({ token_id: coin._id });
                 const latestThread = await Thread.findOne({ token_id: coin._id }).sort({ createdAt: -1 });
@@ -356,7 +357,7 @@ exports.viewCoin = async (req, res) => {
                 if (status === 'deployed') {
                     return {
                         coin: coin,
-                        market_cap: soldAmount.length ? soldAmount[0].totalSold : 0,
+                        market_cap: coin.market_cap,
                         trust_score,
                         status: coin?.status,
                         threadsCount,
@@ -367,7 +368,7 @@ exports.viewCoin = async (req, res) => {
                         coin: {
                             _id: coin._id,
                             name: coin.metadata?.name,
-                            market_cap: soldAmount.length ? soldAmount[0].totalSold : 0,
+                            market_cap: coin?.market_cap,
                             trust_score,
                             status: coin?.status,
                             creator: coin.creator,
