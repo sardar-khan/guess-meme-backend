@@ -22,7 +22,7 @@ exports.createTrade = async (req, res) => {
         if (!user || !token) {
             return res.status(404).json({ message: 'User or Token not found.' });
         }
-        console.log("here", token_id, type, amount, account_type, token_amount, transaction_hash);
+        console.log("account_type", token_id, type, amount, account_type, token_amount, transaction_hash);
 
         return this.postLaunchTrade(req, res, user, token, type, account_type, amount, token_amount, transaction_hash, endpoint);
     } catch (error) {
@@ -595,7 +595,8 @@ exports.postLaunchTrade = async (req, res, user, token, type, account_type, amou
         // token_price = token_amount / tokensObtained; // Calculate token price
 
     } if (account_type === 'ethereum' || account_type === 'bsc' || account_type === 'polygon') {
-        token_cap = await marketCapPolygon(token_address, token_amount);
+        console.log("token_address, token_amount", token_address, token_amount, account_type)
+        token_cap = await marketCapPolygon(token_address, token_amount, account_type);
         // const EthtokensObtained = await getPrice(token_address, token_amount);
         // token_price = EthtokensObtained;
 

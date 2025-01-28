@@ -167,10 +167,27 @@ async function transferMatic() {
     }
 }
 
-async function getPrice(tokenAddress, amount) {
+async function getPrice(tokenAddress, amount, account_type) {
     try {
         const formattedAmount = ethers.parseUnits(amount.toString(), 18);
         console.log("formattedAmount", formattedAmount.toString())
+        console.log("account_type", account_type)
+        let factoryContract;
+        if (account_type == 'bsc') {
+            const provider = new ethers.JsonRpcProvider(process.env.INFURA_URL_BSC); // Amoy testnet
+            const signer = new ethers.Wallet(WALLET_SECRET, provider);
+            factoryContract = new ethers.Contract(process.env.BSC_CA, abi, signer);
+        }
+        else if (account_type == 'ethereum') {
+            const provider = new ethers.JsonRpcProvider(process.env.INFURA_URL_SEPOLIA); // Amoy testnet
+            const signer = new ethers.Wallet(WALLET_SECRET, provider);
+            factoryContract = new ethers.Contract(process.env.SEPOLIA_CA, abi, signer);
+        }
+        else if (account_type == 'polygon') {
+            const provider = new ethers.JsonRpcProvider(process.env.INFURA_URL_TESTNET); // Amoy testnet
+            const signer = new ethers.Wallet(WALLET_SECRET, provider);
+            factoryContract = new ethers.Contract(process.env.CONTRACT_ADDRESS, abi, signer);
+        }
         let payableAmount = await factoryContract.buyQuote(tokenAddress, formattedAmount);
         const ethToPay = ethers.toBigInt(payableAmount);
         console.log("Total ETH to pay Onchange:", ethers.formatEther(ethToPay));

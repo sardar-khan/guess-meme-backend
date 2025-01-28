@@ -246,7 +246,7 @@ const polygonToUsd = async (req, res) => {
 
 }
 //get market cap of the polygon
-exports.marketCapPolygon = async (token_address, amount) => {
+exports.marketCapPolygon = async (token_address, amount, account_type) => {
     try {
 
 
@@ -261,7 +261,7 @@ exports.marketCapPolygon = async (token_address, amount) => {
         // // setBondingTokens(result?.result?.value[0]?.uiAmount);
         // const res = await virtualTokenAmount()
         // console.log("virtual", res)
-        let tokensInSol = await getPrice(token_address, amount);
+        let tokensInSol = await getPrice(token_address, amount, account_type);
         console.log("tokens in sol", tokensInSol.ethToPay)
         tokensInSol = tokensInSol.ethToPay.toString();
         console.log("tokens in sol", tokensInSol)

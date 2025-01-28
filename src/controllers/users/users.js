@@ -222,9 +222,11 @@ exports.heldCoin = async (req, res) => {
 exports.createCoin = async (req, res) => {
     const { name, ticker, description, image, twitter_link, telegram_link, website, bonding_curve, max_buy_percentage, amount, token_address, timer, hash } = req.body;
     const wallet_address = req.user.address;
+    const account_type = req.user.blockchain;
     try {
         // Find the user
-        const user = await User.findOne({ 'wallet_address.address': wallet_address })
+        const user = await User.findOne({ 'wallet_address.address': wallet_address, 'wallet_address.blockchain': account_type })
+        console.log("userrrrrrr", user.wallet_address)
         if (!user) {
             return res.status(404).json({ message: "User not found." });
         }
