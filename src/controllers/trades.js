@@ -349,7 +349,7 @@ exports.getGraphDataa = async (req, res) => {
                 bucketData = {
                     time: currentBucketTime.toISOString(),
                     open: lastKnownPrice || DEFAULT_PRICE,
-                    high: Math.max(...bucketPrices),
+                    high: Math.max(lastKnownPrice || DEFAULT_PRICE, ...bucketPrices),
                     low: Math.min(...bucketPrices),
                     close: bucketPrices[bucketPrices.length - 1]
                 };
