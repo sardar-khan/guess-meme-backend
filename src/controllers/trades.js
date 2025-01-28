@@ -226,10 +226,22 @@ exports.getGraphData = async (req, res) => {
 //i want that user can search graph on the basis of time lie 5minutes,30 minutes ,hour, 1 day, 5days, 1 month, 3 months, 6 months, 1 year
 exports.getGraphDataa = async (req, res) => {
     try {
-        const { token_id, time } = req.query;
+        const { token_id, time, bucketSize: userBucketSize, bucketUnit } = req.query;
+        const DEFAULT_PRICE = 0.000000028; // Set default price
 
         if (!token_id) {
             return res.status(400).json({ error: 'token_id is required' });
+        }
+
+        // Validate bucket unit if provided
+        const validBucketUnits = ['minute', 'hour', 'day', 'week', 'month', 'year'];
+        if (userBucketSize && !bucketUnit) {
+            return res.status(400).json({ error: 'bucketUnit is required when bucketSize is provided' });
+        }
+        if (bucketUnit && !validBucketUnits.includes(bucketUnit)) {
+            return res.status(400).json({
+                error: `Invalid bucket unit. Must be one of: ${validBucketUnits.join(', ')}`
+            });
         }
 
         const now = new Date();
@@ -253,27 +265,66 @@ exports.getGraphDataa = async (req, res) => {
             return res.status(400).json({ error: 'Invalid time parameter' });
         }
 
-        // Calculate bucket size based on time range
+        // Convert bucket size to milliseconds based on unit
         let bucketSize;
-        if (time === '5minutes') {
-            bucketSize = 60 * 1000; // 1 minute
-        } else if (time === '30minutes') {
-            bucketSize = 2 * 60 * 1000; // 2 minutes
-        } else if (time === 'hour') {
-            bucketSize = 5 * 60 * 1000; // 5 minutes
-        } else if (time === '1day') {
-            bucketSize = 15 * 60 * 1000; // 15 minutes
+        if (userBucketSize) {
+            const size = parseInt(userBucketSize);
+            if (isNaN(size) || size <= 0) {
+                return res.status(400).json({ error: 'Invalid bucket size. Must be a positive number.' });
+            }
+
+            switch (bucketUnit) {
+                case 'minute':
+                    bucketSize = size * 60 * 1000;
+                    break;
+                case 'hour':
+                    bucketSize = size * 60 * 60 * 1000;
+                    break;
+                case 'day':
+                    bucketSize = size * 24 * 60 * 60 * 1000;
+                    break;
+                case 'week':
+                    bucketSize = size * 7 * 24 * 60 * 60 * 1000;
+                    break;
+                case 'month':
+                    bucketSize = size * 30 * 24 * 60 * 60 * 1000;
+                    break;
+                case 'year':
+                    bucketSize = size * 365 * 24 * 60 * 60 * 1000;
+                    break;
+                default:
+                    bucketSize = size * 60 * 1000;
+            }
+
+            const timeRange = timeRanges[time];
+            const maxBuckets = 1000;
+            const minBucketSize = timeRange / maxBuckets;
+
+            if (bucketSize < minBucketSize) {
+                const suggestedSize = Math.ceil(minBucketSize / (60 * 1000));
+                return res.status(400).json({
+                    error: `Bucket size too small for selected time range. Minimum bucket size for ${time} is ${suggestedSize} minutes.`
+                });
+            }
         } else {
-            bucketSize = 60 * 60 * 1000; // 1 hour
+            if (time === '5minutes') {
+                bucketSize = 60 * 1000;
+            } else if (time === '30minutes') {
+                bucketSize = 2 * 60 * 1000;
+            } else if (time === 'hour') {
+                bucketSize = 5 * 60 * 1000;
+            } else if (time === '1day') {
+                bucketSize = 15 * 60 * 1000;
+            } else {
+                bucketSize = 60 * 60 * 1000;
+            }
         }
 
-        // Calculate the bonding curve price
         const calculatePrice = (amount) => {
             const tokensObtained = 1073000191 - (32190005730 / (30 + amount));
             return amount / tokensObtained;
         };
 
-        // Get all trades for the period
         const trades = await Trade.find({
             token_id: token_id,
             created_at: { $gte: startTime, $lte: now }
@@ -281,12 +332,11 @@ exports.getGraphDataa = async (req, res) => {
 
         const graphData = [];
         let currentBucketTime = new Date(startTime);
-        let lastKnownPrice = null; // Initialize with null
+        let lastKnownPrice = DEFAULT_PRICE; // Initialize with default price instead of null
 
         while (currentBucketTime <= now) {
             const bucketEnd = new Date(currentBucketTime.getTime() + bucketSize);
 
-            // Get trades within this bucket
             const bucketTrades = trades.filter(trade =>
                 trade.created_at >= currentBucketTime &&
                 trade.created_at < bucketEnd
@@ -295,24 +345,22 @@ exports.getGraphDataa = async (req, res) => {
             let bucketData;
 
             if (bucketTrades.length > 0) {
-                // Calculate prices for all trades in bucket
                 const bucketPrices = bucketTrades.map(trade => calculatePrice(trade.amount));
                 bucketData = {
                     time: currentBucketTime.toISOString(),
-                    open: lastKnownPrice, // Use lastKnownPrice as the opening price
+                    open: lastKnownPrice || DEFAULT_PRICE,
                     high: Math.max(...bucketPrices),
                     low: Math.min(...bucketPrices),
                     close: bucketPrices[bucketPrices.length - 1]
                 };
-                lastKnownPrice = bucketData.close; // Update lastKnownPrice after calculating close
+                lastKnownPrice = bucketData.close;
             } else {
-                // For empty buckets, use last known price
                 bucketData = {
                     time: currentBucketTime.toISOString(),
-                    open: lastKnownPrice,
-                    high: lastKnownPrice,
-                    low: lastKnownPrice,
-                    close: lastKnownPrice
+                    open: lastKnownPrice || DEFAULT_PRICE,
+                    high: lastKnownPrice || DEFAULT_PRICE,
+                    low: lastKnownPrice || DEFAULT_PRICE,
+                    close: lastKnownPrice || DEFAULT_PRICE
                 };
             }
 
@@ -322,15 +370,7 @@ exports.getGraphDataa = async (req, res) => {
 
         return res.status(200).json({
             status: 200,
-            data: graphData,
-            metadata: {
-                timeRange: time,
-                bucketSizeMinutes: bucketSize / 60000,
-                startTime: startTime.toISOString(),
-                endTime: now.toISOString(),
-                totalBuckets: graphData.length,
-                bucketsWithData: graphData.filter(b => b.hasData).length
-            }
+            data: graphData
         });
 
     } catch (error) {

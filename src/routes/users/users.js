@@ -20,6 +20,7 @@ router.get('/view-coins', userController.viewCoin);
 router.get('/metadata/:coinId', userController.metadata)
 //tokens
 router.post('/view-token/:token_id', userController.viewCoinAginstId);
+router.post('/token-details/:token_address', userController.viewCoinAginsAddress)
 //holders
 router.post('/top-holders',
     async (req, res) => {
