@@ -259,11 +259,6 @@
     {
         "inputs": [
             {
-                "internalType": "address",
-                "name": "_creator",
-                "type": "address"
-            },
-            {
                 "internalType": "string",
                 "name": "_name",
                 "type": "string"

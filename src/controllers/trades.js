@@ -594,7 +594,7 @@ exports.postLaunchTrade = async (req, res, user, token, type, account_type, amou
         // const tokensObtained = 1073000191 - (32190005730 / (30 + token_amount)); // Bonding curve formula
         // token_price = token_amount / tokensObtained; // Calculate token price
 
-    } if (account_type === 'ethereum' || account_type === 'bsc' || account_type === 'polygon') {
+    } if (account_type === 'ethereum' || account_type === 'bsc' || account_type === 'polygon' || account_type === 'sepolia') {
         console.log("token_address, token_amount", token_address, token_amount, account_type)
         token_cap = await marketCapPolygon(token_address, token_amount, account_type);
         // const EthtokensObtained = await getPrice(token_address, token_amount);

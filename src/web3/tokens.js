@@ -178,10 +178,11 @@ async function getPrice(tokenAddress, amount, account_type) {
             const signer = new ethers.Wallet(WALLET_SECRET, provider);
             factoryContract = new ethers.Contract(process.env.BSC_CA, abi, signer);
         }
-        else if (account_type == 'ethereum') {
+        else if (account_type == 'ethereum' || account_type == 'sepolia') {
             const provider = new ethers.JsonRpcProvider(process.env.INFURA_URL_SEPOLIA); // Amoy testnet
             const signer = new ethers.Wallet(WALLET_SECRET, provider);
             factoryContract = new ethers.Contract(process.env.SEPOLIA_CA, abi, signer);
+
         }
         else if (account_type == 'polygon') {
             const provider = new ethers.JsonRpcProvider(process.env.INFURA_URL_TESTNET); // Amoy testnet
