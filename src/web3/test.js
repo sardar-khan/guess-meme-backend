@@ -91,10 +91,6 @@ const reteriveTokenInfo = async (taddress, amount) => {
     const virtualSolReservesStr = virtualSolReserves.toString()
     const realTokenReservesStr = realTokenReserves.toString()
     const tokenTotalSupplyStr = tokenTotalSupply.toString()
-    console.log("virtualTokenReserves", virtualTokenReservesStr,
-        "virtualSolReserves", virtualSolReservesStr,
-        "realTokenReserves", realTokenReservesStr,
-        "tokenTotalSupply", tokenTotalSupplyStr);
     // Logging the specific properties in a formatted string
     const formattedOutput = {
         virtualTokenReserves: virtualTokenReservesStr,
@@ -116,7 +112,7 @@ const reteriveTokenInfo = async (taddress, amount) => {
 
 //token price in sol
 
-const tokenAgainstSol = async (taddress, amount) => {
+exports.tokenAgainstSol = async (taddress, amount) => {
     try {
 
         // const amount = tokenToSmallestUnit(parseInt(amount), 6)
@@ -130,7 +126,7 @@ const tokenAgainstSol = async (taddress, amount) => {
         const oneSOLInLamports = BigInt(Math.floor(amount * web3.LAMPORTS_PER_SOL));
         const k = virtualSolReserves * virtualTokenReserves;
         const tokenAmountBN = BigInt(Math.floor(amount * 1_000_000)); // Assuming 6 decimal tokens
-        console.log("Tokens in smallest unit:", tokenAmountBN);
+
         const tokenPriceInLamport = (oneSOLInLamports * virtualSolReserves) / virtualTokenReserves;
 
         // SOL price for given tokens
@@ -153,7 +149,7 @@ const tokenAgainstSol = async (taddress, amount) => {
         return {
             tokensbuy: buySolAgainstTokens / 1_000_000_000, // Convert lamports to SOL
             tokensell: sellSolAgainstTokens / 1_000_000_000, // Convert lamports to SOL
-            tokenPriceInSol,
+            tokenPriceInSol: tokenPriceInSol,
             remianing_tokens: data?.remainingTokens
         };
 

@@ -2,7 +2,7 @@ const CoinCreated = require("../models/coin_created");
 const Trade = require("../models/trades");
 const User = require("../models/users");
 const pusher = require('../../src/config/pusher');
-const { getTokenLargestAccounts, marketCapPolygon } = require("../web3/test");
+const { getTokenLargestAccounts, marketCapPolygon, tokenAgainstSol } = require("../web3/test");
 const buyers_requests = require("../models/buyers_requests");
 const { buyTokensOnBlockchain, getPrice } = require("../web3/tokens");
 const { buyWithAddress, initializeUserATA } = require("../web3/solana/buyTokens");
@@ -227,12 +227,13 @@ exports.getGraphData = async (req, res) => {
 exports.getGraphDataa = async (req, res) => {
     try {
         const { token_id, time, bucketSize: userBucketSize, bucketUnit } = req.query;
-        const DEFAULT_PRICE = 0.000000028; // Set default price
+        const DEFAULT_PRICE = 0.000000025; // Set default price
 
         if (!token_id) {
             return res.status(400).json({ error: 'token_id is required' });
         }
-
+        const token = await CoinCreated.findById(token_id);
+        const token_address = token?.token_address;
         // Validate bucket unit if provided
         const validBucketUnits = ['minute', 'hour', 'day', 'week', 'month', 'year'];
         if (userBucketSize && !bucketUnit) {
@@ -320,9 +321,11 @@ exports.getGraphDataa = async (req, res) => {
             }
         }
 
-        const calculatePrice = (amount) => {
-            const tokensObtained = 1073000191 - (32190005730 / (30 + amount));
-            return amount / tokensObtained;
+        const calculatePrice = async () => {
+            //const tokensObtained = 1073000191 - (32190005730 / (30 + amount));
+            let tokensObtained = await tokenAgainstSol(token_address, 1)
+            tokensObtained = tokensObtained?.tokenPriceInSol;
+            return tokensObtained;
         };
 
         const trades = await Trade.find({
@@ -345,7 +348,7 @@ exports.getGraphDataa = async (req, res) => {
             let bucketData;
 
             if (bucketTrades.length > 0) {
-                const bucketPrices = bucketTrades.map(trade => calculatePrice(trade.amount));
+                const bucketPrices = await Promise.all(bucketTrades.map(() => calculatePrice()));
                 bucketData = {
                     time: currentBucketTime.toISOString(),
                     open: lastKnownPrice || DEFAULT_PRICE,
