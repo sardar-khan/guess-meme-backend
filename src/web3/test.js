@@ -39,7 +39,7 @@ exports.getTokenLargestAccounts = async (token_address) => {
 
             // const result = await response.json()
             // console.log("result", result, parseFloat(result?.result?.value[0]?.uiAmount))
-            const res = await tokenAgainstSol(
+            const res = await this.tokenAgainstSol(
                 token_address, //token_address
                 amount
             )
