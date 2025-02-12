@@ -714,7 +714,7 @@ const tradeNotificationPusher = (user, token, type, amount) => {
     const promises = [
         this.getKingOfTheHillPercentage(token.token_address),
         this.getBondingCurveProgress(token.token_address),
-        this.getTrades(token.id),
+        this.getTrades(token.id, 1, 3),
         topHolders(token.token_address)
     ];
 
@@ -733,7 +733,7 @@ const tradeNotificationPusher = (user, token, type, amount) => {
                 latestTrades: latestTrades,
                 topHolders: topHolder
             };
-
+            console.log("percentageData", percentageData)
             // 3. Trigger Pusher Notification
             pusher.trigger('percentage-chanel', 'new-percentage', percentageData);
         })
