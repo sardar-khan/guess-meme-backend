@@ -14,7 +14,7 @@ const UserSchema = new Schema({
     },
     profile_photo: {
         type: String,
-        default: 'https://ibb.co/7zrpRwk'
+        default: 'http://13.60.36.211:5000/uploads/0x76399c8A5027fD58A1D1b07500ccC8a223BEE0c31739357237108defaultguessmeme.png'
     },
     bio: {
         type: String,
