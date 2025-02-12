@@ -65,5 +65,6 @@ router.post('/progress-curve-bond', async (req, res) => {
     }
 });
 router.get('/graph-data', tradeController.getGraphDataa);
-router.get('/lastest-data', tradeController.getLatestTradeAndCoin)
+router.get('/lastest-data', tradeController.getLatestTradeAndCoin);
+router.get('/graph-random-data', tradeController.getRandomGraphData)
 module.exports = router;

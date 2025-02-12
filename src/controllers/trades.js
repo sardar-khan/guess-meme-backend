@@ -227,7 +227,7 @@ exports.getGraphData = async (req, res) => {
 exports.getGraphDataa = async (req, res) => {
     try {
         const { token_id, time, bucketSize: userBucketSize, bucketUnit } = req.query;
-        const DEFAULT_PRICE = 0.000000025; // Set default price
+        const DEFAULT_PRICE = 0.000000028; // Set default price
 
         if (!token_id) {
             return res.status(400).json({ error: 'token_id is required' });
@@ -741,4 +741,49 @@ const tradeNotificationPusher = (user, token, type, amount) => {
             console.error('Error fetching data for notification:', error);
             // Implement error handling (e.g., fallback values, retry logic)
         });
+};
+
+
+const graphData = [];
+const MIN_VALUE = 2.8e-8;
+const MAX_VALUE = 4.1e-7;
+
+function getRandomPrice(min, max) {
+    return Math.random() * (max - min) + min;
+}
+
+function formatPrice(value) {
+    return parseFloat(value.toFixed(9)); // Ensure only 2 to 3 decimal places
+}
+
+function generateNewData() {
+    let lastClose = graphData.length > 0 ? graphData[graphData.length - 1].close : getRandomPrice(MIN_VALUE, MAX_VALUE);
+
+    const open = formatPrice(lastClose);
+    const high = formatPrice(Math.max(open, getRandomPrice(open, MAX_VALUE)));
+    const low = formatPrice(Math.min(open, getRandomPrice(MIN_VALUE, open)));
+    const close = formatPrice(getRandomPrice(low, high));
+
+    const newData = {
+        time: new Date().toISOString(),
+        open,
+        high,
+        low,
+        close
+    };
+
+    graphData.push(newData);
+}
+
+exports.getRandomGraphData = async (req, res) => {
+    try {
+        generateNewData(); // Generate new data when endpoint is hit
+        return res.status(200).json({
+            status: 200,
+            data: graphData
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ status: 500, error: error.message });
+    }
 };
