@@ -777,11 +777,13 @@ function generateNewData() {
 
 exports.getRandomGraphData = async (req, res) => {
     try {
-        generateNewData(); // Generate new data when endpoint is hit
-        return res.status(200).json({
-            status: 200,
-            data: graphData
-        });
+        setTimeout(() => {
+            generateNewData(); // Generate new data with a 1-second delay
+            return res.status(200).json({
+                status: 200,
+                data: graphData
+            });
+        }, 1000);
     } catch (error) {
         console.error(error);
         return res.status(500).json({ status: 500, error: error.message });
