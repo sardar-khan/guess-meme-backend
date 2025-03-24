@@ -8,6 +8,7 @@ const TradeSchema = new Schema({
     type: { type: String, enum: ['buy', 'sell'] },
     token_amount: { type: String, required: true },
     account_type: { type: String, required: true },
+    coin_price: { type: Number, required: true },
     transaction_hash: { type: String },
     total_token_supply: { type: Number, default: 0 },
     reserve_balance: { type: Number, default: 0 },

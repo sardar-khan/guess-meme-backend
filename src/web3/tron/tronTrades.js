@@ -19,11 +19,9 @@ const factoryContract = tronWeb.contract(abi, CONTRACT_ADDRESS);
 
 // Deploy on Tron
 const deployOnTron = async (tokenData) => {
-    console.log("token_data", tokenData);
     let { name, symbol, totalSupply } = tokenData;
 
     try {
-        console.log(`Deploying token: ${name} (${symbol}), Total Supply: ${totalSupply}`);
         name = name.toString();
         symbol = symbol.toString();
         totalSupply = totalSupply.toString();
@@ -43,13 +41,11 @@ const deployOnTron = async (tokenData) => {
 // Buy on Tron
 async function buyOnTron(tokenAddress, amount) {
     try {
-        console.log("call bydv", tokenAddress, amount);
 
         const payableAmount = await factoryContract.buyQuote(tokenAddress, amount).call();
         const fee = await factoryContract.calculateBuyFee(tokenAddress, amount).call();
 
         const totalAmount = tronWeb.toBigNumber(payableAmount).plus(fee);
-        console.log("Total amount to pay in SUN:", totalAmount.toString());
 
         const tx = await factoryContract.buyTokens(tokenAddress, amount).send({
             callValue: totalAmount.toNumber(), // Call value in SUN

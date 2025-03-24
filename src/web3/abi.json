@@ -214,6 +214,30 @@
                 "type": "uint256"
             }
         ],
+        "name": "buyQuoteWithFee",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "_token",
+                "type": "address"
+            },
+            {
+                "internalType": "uint256",
+                "name": "_amount",
+                "type": "uint256"
+            }
+        ],
         "name": "buyTokens",
         "outputs": [],
         "stateMutability": "payable",
@@ -399,6 +423,30 @@
                 "type": "uint256"
             }
         ],
+        "name": "sellQuoteWithFee",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "_token",
+                "type": "address"
+            },
+            {
+                "internalType": "uint256",
+                "name": "_amount",
+                "type": "uint256"
+            }
+        ],
         "name": "sellTokens",
         "outputs": [],
         "stateMutability": "nonpayable",
@@ -484,37 +532,24 @@
     {
         "inputs": [
             {
+                "internalType": "string",
+                "name": "_name",
+                "type": "string"
+            },
+            {
+                "internalType": "string",
+                "name": "_symbol",
+                "type": "string"
+            },
+            {
                 "internalType": "address",
                 "name": "_token",
                 "type": "address"
-            },
-            {
-                "internalType": "address",
-                "name": "_buyer",
-                "type": "address"
-            },
-            {
-                "internalType": "uint256",
-                "name": "_amount",
-                "type": "uint256"
             }
         ],
-        "name": "userBuyTokens",
+        "name": "updateMetadata",
         "outputs": [],
-        "stateMutability": "payable",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "virtualTokenAmount",
-        "outputs": [
-            {
-                "internalType": "uint256",
-                "name": "",
-                "type": "uint256"
-            }
-        ],
-        "stateMutability": "view",
+        "stateMutability": "nonpayable",
         "type": "function"
     },
     {

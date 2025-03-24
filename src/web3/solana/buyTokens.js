@@ -26,10 +26,8 @@ const bs58 = require("bs58");
 // const userPublickey = new PublicKey("GMjT1392P2XMgMwQJEvQFsjJrrFW6symXjerkUvzinLV");
 
 async function initializeUserATA(payer, user, mint) {
-    console.log("minter", user, mint, "associated", TOKEN_PROGRAM_ID,
-        ASSOCIATED_TOKEN_PROGRAM_ID)
+
     user = new PublicKey(user);
-    console.log("my user", user)
     const userATA = await getAssociatedTokenAddress(
         mint,
         user,
@@ -38,7 +36,6 @@ async function initializeUserATA(payer, user, mint) {
         ASSOCIATED_TOKEN_PROGRAM_ID
     );
 
-    console.log("User ATA:", userATA.toBase58());
 
     const accountInfo = await connection.getAccountInfo(userATA);
     if (accountInfo !== null) {
@@ -64,7 +61,6 @@ async function initializeUserATA(payer, user, mint) {
 
 async function buyWithAddress(address) {
     try {
-        console.log("mintaddy", mintaddy);
         const buy_value = "0.1";
         const tokenamt = 210000000000;
 
@@ -76,9 +72,6 @@ async function buyWithAddress(address) {
             [Buffer.from("bonding-curve"), mintaddy.toBuffer()],
             programId
         );
-
-        console.log("Mint authority: " + S.toBase58());
-        console.log("Bonding curve: " + C.toBase58());
 
         const B = b(mintaddy, C, true);
 

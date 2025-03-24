@@ -136,7 +136,6 @@ exports.deployCoin = async (req, res) => {
             if (!token) {
                 return res.status(200).json({ status: 401, message: 'Coin not found.' });
             }
-            console.log("start")
             //call the smart contract fucntion deploy or create token 
             const tokenData = {
                 name: token.name,
@@ -164,7 +163,6 @@ exports.fetchAddresses = async (req, res) => {
     try {
         let admin_address;
         if (type == 'solana') {
-            console.log("wallet_address", wallet.publicKey.toBase58());
             admin_address = wallet.publicKey.toBase58()
         }
         else if (type === 'ethereum') {

@@ -1,9 +1,9 @@
 const { Keypair, PublicKey } = require("@solana/web3.js");
-const { program, programId } = require("../solana/config");
+const { program, programId, wallet } = require("../solana/config2");
 const BN = require("bn.js");
 const { b } = require("./utils");
 
-async function create(t_name, t_symbol, t_uri, max_supply) {
+async function meta(name, symbol, uri, token_address) {
     // Constants for SOL and Token decimals
     const SOL_DECIMALS = 9;
     const TOKEN_DECIMALS = 6;
@@ -18,8 +18,8 @@ async function create(t_name, t_symbol, t_uri, max_supply) {
     const initialVirtualTokenReserves = tokenTotalSupply.add(tokenMargin);
     const initialRealTokenReserves = tokenTotalSupply.mul(new BN(80)).div(new BN(100)); // 80% of total supply
 
-    const token_key = Keypair.generate();
-    console.log("Token address (public key):", token_key.publicKey.toBase58());
+    const token_key = new PublicKey(token_address);
+    console.log("Token address (public key):", token_key.toString());
     console.log("SOL Decimals:", SOL_DECIMALS);
     console.log("Token Decimals:", TOKEN_DECIMALS);
     console.log("Initial Real Token Reserves:", initialRealTokenReserves.toString());
@@ -33,12 +33,11 @@ async function create(t_name, t_symbol, t_uri, max_supply) {
     console.log("Mint authority:", S.toBase58());
 
     const [C] = PublicKey.findProgramAddressSync(
-        [Buffer.from("bonding-curve"), token_key.publicKey.toBuffer()],
+        [Buffer.from("bonding-curve"), token_key.toBuffer()],
         programId
     );
-    console.log("Bonding curve:", C.toBase58());
 
-    const B = b(token_key.publicKey, C, true);
+    const B = b(token_key, C, true);
 
     const MPL_TOKEN_METADATA_PROGRAM_ID = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s";
     const E = new PublicKey(MPL_TOKEN_METADATA_PROGRAM_ID);
@@ -49,23 +48,19 @@ async function create(t_name, t_symbol, t_uri, max_supply) {
     );
 
     const [D] = PublicKey.findProgramAddressSync(
-        [Buffer.from("metadata"), E.toBuffer(), token_key.publicKey.toBuffer()],
+        [Buffer.from("metadata"), E.toBuffer(), token_key.toBuffer()],
         E
     );
-
+    // console.log("Token Supply (adjusted for decimals):", tokenTotalSupply.toString(), max_supply * tokenFactor);
     // Create transaction
     const tx = await program.methods
-        .create(
-            t_name,
-            t_symbol,
-            t_uri,
-            100, // Adjust max_supply for token decimals
-            initialRealTokenReserves,
-            initialVirtualTokenReserves,
-            tokenTotalSupply
+        .meta(
+            name,
+            symbol,
+            uri,
         )
         .accounts({
-            mint: token_key.publicKey,
+            mint: token_key,
             mintAuthority: S,
             bondingCurve: C,
             associatedBondingCurve: B,
@@ -73,7 +68,7 @@ async function create(t_name, t_symbol, t_uri, max_supply) {
             mplTokenMetadata: E,
             metadata: D,
         })
-        .signers([token_key])
+        .signers([wallet.payer])
         .rpc();
 
     console.log("Transaction Signature:", tx);
@@ -85,7 +80,9 @@ async function create(t_name, t_symbol, t_uri, max_supply) {
 
     return {
         hash: tx,
-        token_address: token_key.publicKey.toBase58(),
+        token_address: token_key.toBase58(),
     };
 }
-module.exports = { create }
+
+
+module.exports = { meta }

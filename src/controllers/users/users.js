@@ -1,8 +1,10 @@
 const jwt = require("jsonwebtoken");
+const passport = require("passport");
 const User = require("../../models/users");
 const mongoose = require('mongoose');
 const coins_created = require("../../models/coin_created")
 const { generateUsername } = require("../../services/users/userServices");
+const { createPool } = require('../../web3/TrasferTokens/AddLiquidityWuthSol')
 const Trade = require("../../models/trades");
 const Thread = require("../../models/threads");
 const pusher = require('../../config/pusher');
@@ -14,7 +16,6 @@ exports.addWallets = async (req, res) => {
     try {
         const existingUser = await User.findOne({ 'wallet_address.address': address, 'wallet_address.blockchain': blockchain });
         if (existingUser) {
-            console.log("existingUser", existingUser)
             if (existingUser.token) {
                 try {
                     // Verify the token
@@ -38,7 +39,6 @@ exports.addWallets = async (req, res) => {
         else {
             // Create new user
             const generate_username = generateUsername(address, blockchain);
-            console.log("gen", generate_username)
             const newUser = new User({ wallet_address: [{ address, blockchain }], user_name: generate_username });
             await newUser.save();
             const token = jwt.sign(
@@ -59,17 +59,16 @@ exports.addWallets = async (req, res) => {
 };
 exports.updateUserProfile = async (req, res) => {
     const wallet_address = req.user.address;
-    const { user_name, bio, profile_photo } = req.body;
+    const { user_name, bio, profile_photo, instagram_link, x_link } = req.body;
 
     try {
         // Check if the username is being updated and if it's already taken by another user
         if (user_name) {
             const existingUser = await User.findOne({ user_name });
-            if (existingUser && existingUser.wallet_address !== wallet_address) {
+            if (existingUser && existingUser.wallet_address !== wallet_address && user_name !== existingUser.user_name) {
                 return res.status(400).json({ message: 'Username is already taken' });
             }
         }
-        console.log("wallet_address", wallet_address)
         // Find the user by wallet address
         const user = await User.findOne({ 'wallet_address.address': wallet_address });
         if (!user) {
@@ -79,14 +78,9 @@ exports.updateUserProfile = async (req, res) => {
         // Update the allowed fields if they are provided
         if (user_name) user.user_name = user_name;
         if (profile_photo) user.profile_photo = profile_photo;
-        // if (req.file) {
-        //     const imageBuffer = await sharp(req.file.buffer)
-        //         .resize(100, 100) // Resize the image to a maximum of 500x500 pixels
-        //         .jpeg({ quality: 50 }) // Compress the image to JPEG with a quality of 70
-        //         .toBuffer();
-        //     user.profile_photo = { data: imageBuffer, contentType: 'image/jpeg' };
-        // }
         if (bio) user.bio = bio;
+        if (x_link) user.x_link = x_link;
+        if (instagram_link) user.instagram_link = instagram_link;
 
         // Save the updated user
         const updatedUser = await user.save();
@@ -211,7 +205,6 @@ exports.heldCoin = async (req, res) => {
         // Add the new coin to the coins_held array
         user.coins_held.push({ coinId: coin_id, amount });
         await user.save();
-        console.log("user", user)
         return res.status(200).json({ message: "Coin added to user's holdings successfully.", data: user });
     } catch (error) {
         console.error(error);
@@ -220,13 +213,12 @@ exports.heldCoin = async (req, res) => {
 };
 //create coin
 exports.createCoin = async (req, res) => {
-    const { name, ticker, description, image, twitter_link, telegram_link, website, bonding_curve, max_buy_percentage, amount, token_address, timer, hash } = req.body;
+    const { name, ticker, description, image, twitter_link, telegram_link, website, bonding_curve, max_buy_percentage, amount, token_address, dev_buy, timer, hash } = req.body;
     const wallet_address = req.user.address;
     const account_type = req.user.blockchain;
     try {
         // Find the user
         const user = await User.findOne({ 'wallet_address.address': wallet_address, 'wallet_address.blockchain': account_type })
-        console.log("userrrrrrr", user.wallet_address)
         if (!user) {
             return res.status(404).json({ message: "User not found." });
         }
@@ -254,6 +246,7 @@ exports.createCoin = async (req, res) => {
                 max_supply: 0,
                 max_buy_percentage,
                 bonding_curve,
+                coin_type: account_type,
                 metadata: {
                     name: name,
                     image: image,
@@ -265,9 +258,9 @@ exports.createCoin = async (req, res) => {
                 timer,
                 status: 'created',
                 is_created: true,
+                dev_buy,
             });
             if (hash !== null && amount !== null && amount !== "" && amount !== 0) {
-                console.log("here", req, res, user, newCoin, 'buy', user.wallet_address[0].blockchain, amount, amount, hash);
                 await postLaunchTrade(req, res, user, newCoin, 'buy', user.wallet_address[0].blockchain, amount, amount, hash, endpoint = false)
             }
             // Save the new coin to the database
@@ -296,7 +289,6 @@ exports.createCoin = async (req, res) => {
 
                 // user_image: user.profile_photo
             };
-            console.log("initated-noti", tradeNotification)
 
             pusher.trigger('coin-created-channel', 'coin-created', tradeNotification);
             return res.status(200).json({ status: 200, message: "Coin created successfully.", data: newCoin, metadata_link: `/user/metadata/${newCoin._id}` });
@@ -306,15 +298,31 @@ exports.createCoin = async (req, res) => {
         return res.status(200).json({ status: 500, error: error.message });
     }
 };
+
+exports.saveDevBuy = async (req, res) => {
+    const { tokenId, dev_buy } = req.body;
+    try {
+        const coin = await coins_created.findOne({ _id: new mongoose.Types.ObjectId(tokenId) });
+        if (!coin) {
+            return res.status(404).json({ message: 'Coin not found.' });
+        }
+        coin.dev_buy = dev_buy;
+        await coin.save();
+        return res.status(200).json({ status: 200, message: 'Dev buy saved successfully.', data: coin });
+    } catch (error) {
+        console.error(error);
+        return res.status(200).json({ status: 500, error: error.message });
+    }
+}
 exports.viewCoin = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 1000;
-    const sortBy = req.query.sortBy || 'time';
+    const sortBy = req.query.sortBy || 'createdat';
     const order = req.query.order === 'asc' ? 1 : -1;
     const type = req.query.type;
     const status = req.query.status;
 
-    const sortFields = ['time', 'market_cap', 'reply_count', 'last_reply'];
+    const sortFields = ['createdat', 'market_cap', 'reply_count', 'last_reply'];
 
     if (sortBy && !sortFields.includes(sortBy)) {
         return res.status(400).json({
@@ -322,13 +330,14 @@ exports.viewCoin = async (req, res) => {
             message: `Invalid sortBy. Allowed values: ${sortFields.join(', ')}`
         });
     }
-    console.log("sorted by ", sortBy)
     try {
+        console.log("status", status)
         const filter = {};
 
-        if (status) {
+        if (status && status !== 'all') {
             filter.status = status;
         }
+
 
         if (req.query.creator) {
             filter.creator = req.query.creator;
@@ -345,17 +354,9 @@ exports.viewCoin = async (req, res) => {
         const coinsWithDetails = await Promise.all(
             coins.map(async (coin) => {
                 if (!coin.creator) return null;
-
                 let trust_score = await calculateTrustScore(coin.creator.id);
-                const soldAmount = await Trade.aggregate([
-                    { $match: { token_id: coin._id, type: 'sell' } },
-                    { $group: { _id: null, totalSold: { $sum: "$amount" } } }
-                ]);
-                console.log("soldAmount", soldAmount)
-
                 const threadsCount = await Thread.countDocuments({ token_id: coin._id });
                 const latestThread = await Thread.findOne({ token_id: coin._id }).sort({ createdAt: -1 });
-
                 if (status === 'deployed') {
                     return {
                         coin: coin,
@@ -371,6 +372,7 @@ exports.viewCoin = async (req, res) => {
                             _id: coin._id,
                             name: coin.metadata?.name,
                             market_cap: coin?.market_cap,
+                            dev_buy: coin.dev_buy,
                             trust_score,
                             status: coin?.status,
                             creator: coin.creator,
@@ -381,10 +383,39 @@ exports.viewCoin = async (req, res) => {
                         threadsCount,
                         latestThread: latestThread || null
                     };
+                } else if (status === 'all') {
+                    if (coin.status === 'deployed') {
+                        return {
+                            coin: coin,
+                            market_cap: coin.market_cap,
+                            trust_score,
+                            status: coin?.status,
+                            threadsCount,
+                            latestThread: latestThread || null
+                        };
+                    } else if (coin.status === 'created') {
+                        return {
+                            coin: {
+                                _id: coin._id,
+                                name: coin.metadata?.name,
+                                market_cap: coin?.market_cap,
+                                dev_buy: coin.dev_buy,
+                                trust_score,
+                                status: coin?.status,
+                                creator: coin.creator,
+                                time: coin.time,
+                                token_address: coin.token_address
+                            },
+                            status: coin.status,
+                            threadsCount,
+                            latestThread: latestThread || null
+                        };
+                    }
+
                 }
             })
         );
-
+        console.log("coinsWithDetails", coinsWithDetails)
         // Apply sorting based on the sortBy parameter
         const sortedCoins = coinsWithDetails.sort((a, b) => {
             switch (sortBy) {
@@ -395,14 +426,17 @@ exports.viewCoin = async (req, res) => {
                 case 'last_reply': {
                     const aDate = a.latestThread?.createdAt || 0;
                     const bDate = b.latestThread?.createdAt || 0;
-                    console.log("aDate", aDate)
                     return order * (aDate - bDate);
                 }
+                case 'createdat': {
+                    return order * ((a.coin.time) - (b.coin.time));
+
+                }
                 default: // 'time'
-                    return order * ((a.coin.time || 0) - (b.coin.time || 0));
+                    return order * ((a.coin.time) - (b.coin.time));
             }
         });
-
+        // console.log("sortedCoins", sortedCoins)
         // Shuffle only if NO sorting and NO order is specified
         if (!req.query.sortBy && !req.query.order) {
             const shuffleArray = (array) => {
@@ -420,7 +454,7 @@ exports.viewCoin = async (req, res) => {
         const startIndex = (page - 1) * limit;
         const endIndex = page * limit;
         const paginatedCoins = sortedCoins.slice(startIndex, endIndex);
-
+        // console.log("paginatedCoins", paginatedCoins)
         return res.status(200).json({
             status: 200,
             message: 'Coins fetched successfully.',
@@ -437,9 +471,8 @@ exports.viewCoin = async (req, res) => {
 exports.viewCoinAginstId = async (req, res) => {
     try {
         const { token_id } = req.params;
-        console.log("token_id", token_id)
-        const token = await coins_created.findById(token_id).populate('creator', 'user_name profile_photo');
-
+        const token = await coins_created.findById(token_id).populate('creator', 'user_name profile_photo wallet_address.address').lean(); // Convert to plain JS object;
+        token.creator.wallet_address = token.creator.wallet_address[0].address;
         const now = new Date();
         let trust_score = await calculateTrustScore(token.creator.id);
         if (token.timer < now) {
@@ -475,41 +508,82 @@ exports.viewCoinAginstId = async (req, res) => {
 //view y tokens address
 exports.viewCoinAginsAddress = async (req, res) => {
     try {
-        const { token_address } = req.params;
-        console.log("token_address", token_address)
-        const token = await coins_created.findOne({ token_address: token_address }).populate('creator', 'user_name profile_photo');
-        const now = new Date();
-        let trust_score = await calculateTrustScore(token.creator.id);
-        if (token.timer < now) {
-            return res.status(200).json({
-                status: 200,
-                message: 'Token fetched successfully.',
-                data: token
-            });
-        } else {
-            return res.status(200).json({
-                status: 200,
-                message: 'Token fetched successfully.',
-                data: {
-                    _id: token._id,
-                    name: token.metadata?.name,
-                    market_cap: token.market_cap,
-                    trust_score: trust_score,
-                    status: token?.status,
-                    creator: token.creator,
-                    token_address: token.token_address,
-                    time: token.time
-                },
-                // status: token.status,
-                // threadsCount: threadsCount,
-                // latestThread: latestThread || null
-            });
+        // Extract parameters
+        const { data } = req.params; // name, ticker, or token_address
+        const { type } = req.query; // solana or sepolia
+
+        if (!data || !type) {
+            return res.status(400).json({ status: 400, message: "Missing required parameters." });
         }
+
+        // Find all related coins that match the type and search data
+        const tokens = await coins_created.find({
+            coin_type: type,
+            $or: [
+                { name: { $regex: data, $options: "i" } }, // Case-insensitive match
+                { ticker: { $regex: data, $options: "i" } },
+                { token_address: data }
+            ]
+        })
+            .populate("creator", "user_name profile_photo wallet_address.address")
+            .lean()
+            .exec();
+
+        if (!tokens.length) {
+            return res.status(404).json({ status: 404, message: "Tokens not found." });
+        }
+        // Get current time
+        const now = new Date();
+
+        // Process each token
+        const responseData = await Promise.all(tokens.map(async (token) => {
+            const trust_score = await calculateTrustScore(token._id); // Calculate for each coin
+            const threadsCount = await Thread.countDocuments({ token_id: token._id });
+            const latestThread = await Thread.findOne({ token_id: token._id }).sort({ createdAt: -1 });
+
+            if (token.status == "created") {
+                // If timer is expired, return full token object
+                return {
+                    coin: {
+                        _id: token._id,
+                        name: token.metadata?.name,
+                        market_cap: token?.market_cap,
+                        dev_buy: token.dev_buy,
+                        trust_score,
+                        status: token?.status,
+                        creator: token.creator,
+                        time: token.time,
+                        token_address: token.token_address
+                    },
+                    status: token.status,
+                    threadsCount,
+                    latestThread: latestThread || null
+                }
+            } else if (token.status == "deployed") {
+                // If timer is not expired, return a filtered version
+                return {
+                    coin: token,
+                    market_cap: token.market_cap,
+                    trust_score,
+                    status: token?.status,
+                    threadsCount,
+                    latestThread: latestThread || null
+                };
+            }
+        }));
+
+        return res.status(200).json({
+            status: 200,
+            message: "Tokens fetched successfully.",
+            data: responseData
+        });
+
     } catch (error) {
-        console.error(error);
-        return res.status(200).json({ status: 500, error: error.message });
+        console.error("Error in viewCoinAginsAddress:", error);
+        return res.status(500).json({ status: 500, message: "Internal server error", error: error.message });
     }
-}
+};
+
 //top 20 holders
 exports.topHolders = async (token_address) => {
     try {
@@ -571,12 +645,10 @@ exports.viewUser = async (req, res) => {
             return res.status(404).json({ status: 404, message: 'User not found.' });
         }
         const score = await calculateTrustScore(user_id);
-        console.log("trust score", score)
 
         const coinsHeldDetails = await Promise.all(user.coins_held.map(async (coin) => {
             const coinDetails = await coins_created.findById(coin.coinId);
             if (coinDetails) {
-                console.log(coinDetails.time, 'time')
                 return {
                     coinId: coin.coinId,
                     name: coinDetails.name,
@@ -744,7 +816,6 @@ async function calculateTrustScore(creatorId) {
 exports.metadata = async (req, res) => {
     try {
         const { coin_id } = req.params; // Use req.params to access parameters in the URL
-        console.log(req.params);
         // Use object shorthand property names for better readability
         const coin = await coins_created.findOne({
             coinId: coin_id
@@ -878,7 +949,6 @@ exports.toggleFollow = async (req, res) => {
             pusher.trigger('follow-user', 'follow', pusher_data);
             currentUser.unread_notifications += 1;
             await currentUser.save();
-            console.log("count", currentUser.unread_notifications)
             return res.status(200).json({
                 message: "Successfully followed the user.",
                 following: true,
@@ -940,7 +1010,6 @@ exports.getNotifications = async (req, res) => {
         const threads = await Thread.find({ user_id: user._id })
             .populate('likes.user_id', 'user_name profile_photo');
 
-        console.log('Threads by user:', threads);
 
         // Extract and map likes into notifications
         const likeNotifications = threads.flatMap(thread =>
@@ -953,18 +1022,15 @@ exports.getNotifications = async (req, res) => {
                     thread_id: thread._id,
                     token_id: thread.token_id,
                     user_profile: like.user_id?.profile_photo,
+                    user_id: like.user_id?._id
                 }))
         );
-
-        console.log('Like notifications:', likeNotifications);
 
         // Fetch the latest followers
         const followers = await User.find({ _id: { $in: user.followers } })
             .select('user_name profile_photo createdAt')
             .limit(10)
             .sort({ createdAt: -1 });
-
-        console.log('Followers:', followers);
 
         // Map followers into notifications
         const followNotifications = followers.map(follower => ({
@@ -973,8 +1039,6 @@ exports.getNotifications = async (req, res) => {
             user_profile: follower.profile_photo,
             created_at: follower.createdAt,
         }));
-
-        console.log('Follow notifications:', followNotifications);
 
         // Extract mentions from replies
         const repliesIds = threads.flatMap(thread => thread.replies);
@@ -988,9 +1052,8 @@ exports.getNotifications = async (req, res) => {
                 thread_id: reply.thread_id,
                 token_id: reply.token_id,
                 user_profile: reply.user_id?.profile_photo,
+                user_id: reply.user_id?._id
             }));
-
-        console.log('Mention notifications:', mentionNotifications);
 
         // Combine all notifications
         const notifications = [...likeNotifications, ...followNotifications, ...mentionNotifications]
@@ -1036,4 +1099,81 @@ exports.markNotificationsAsRead = async (req, res) => {
         console.error('Error marking notifications as read:', error.message);
         return res.status(500).json({ status: 500, error: error.message });
     }
+};
+
+exports.updateProfileSettings = async (req, res) => {
+    const wallet_address = req.user.address;
+    const { value, settingName } = req.body;
+    const featureName = String(settingName).toLowerCase()
+    try {
+        // Check if the username is being updated and if it's already taken by another user
+
+        // Find the user by wallet address
+        const user = await User.findOne({ 'wallet_address.address': wallet_address });
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        switch (featureName) {
+            case "hide_followers":
+                user.hide_followers = value;
+                break;
+
+            case "hide_following":
+                user.hide_following = value;
+                break;
+
+            case "hide_notification":
+                user.hide_notification = value;
+                break;
+
+            case "hide_purchase":
+                user.hide_purchase = value;
+                break;
+
+
+        }
+
+
+        const updatedUser = await user.save();
+        return res.status(200).json({ status: 200, message: "Updated Successfully", updatedUser });
+    } catch (error) {
+        return res.status(500).json({ status: 500, error: error.message });
+    }
+};
+
+//check coin raydium shifting status
+exports.checkShiftingStatus = async (req, res) => {
+    try {
+        const { token_id } = req.params;
+        if (!token_id) {
+            return res.status(400).json({ message: "token id is required" })
+        }
+        const coin = await coins_created.findById(token_id);
+        if (!coin) {
+            return res.status(400).json({ message: "coin not found " })
+        }
+        return res.status(200).json({ message: "coin shifting status", is_shifted: coin.is_shifted })
+
+    } catch (error) {
+        return res.status(500).json({ status: 500, error: error.message });
+    }
+}
+
+
+exports.checkthestatus = async (req, res) => {
+    try {
+        const res = await createPool();
+
+    } catch (error) {
+        return res.status(500).json({ status: 500, error: error.message });
+    }
+}
+
+exports.twitterAuth = passport.authenticate("twitter");
+
+exports.twitterCallback = (req, res) => {
+    const twitterProfileLink = `https://twitter.com/${req.user.username}`;
+    console.log("links my man", twitterProfileLink)
+    res.redirect(`${process.env.FRONTEND_LINK}/editprofile/${encodeURIComponent(twitterProfileLink)}`);
 };

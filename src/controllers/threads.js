@@ -34,10 +34,10 @@ exports.createThread = async (req, res) => {
         await newThread.save();
 
         if (reply_id) {
-            console.log("herrr");
+
             // Find the parent thread and update its replies
             const parentThread = await Thread.findOne({ reply_id });
-            console.log("parentThread", parentThread)
+
             if (!parentThread) {
                 return res.status(200).json({ status: 404, message: 'Parent thread not found.' });
             }
@@ -55,7 +55,7 @@ exports.createThread = async (req, res) => {
             pusher.trigger("threads-channel", "new-reply", pusherData);
             user.unread_notifications += 1;
             await user.save();  // Save the updated unread notification count
-            console.log("Unread notifications count:", user.unread_notifications);
+
         }
 
 
@@ -149,7 +149,6 @@ exports.toggleLike = async (req, res) => {
             pusher.trigger('like-pusher', 'like', like_pusher_data);
             user.unread_notifications += 1;
             await user.save();  // Save the updated unread notification count
-            console.log("Unread notifications count:", user.unread_notifications);
             return res.status(200).json({ status: 200, message: "Like successful.", like: true });
         }
     } catch (error) {
@@ -254,7 +253,6 @@ exports.viewCreatorMentioned = async (req, res) => {
 
         const likedThreads = await Thread.find({ user_id: user.id })
             .select('replies');
-        console.log("likedThreads", likedThreads)
         // Calculate the total number of likes
         const count = likedThreads.reduce((sum, thread) => sum + thread.replies.length, 0);
 

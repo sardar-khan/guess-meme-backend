@@ -25,6 +25,7 @@ router.get('/view/:token_id', async (req, res) => {
         return res.status(500).json({ status: 500, error: error.message });
     }
 });
+router.get('/creator-trade/:token_id/:creator_id', tradeController.getUserTradeSummary)
 router.get('/coin_of_hill/:type', tradeController.getKingOfTheHill);
 router.post('/king-of-hill-progress', async (req, res) => {
     const tokenAddress = req.body.token_address;
@@ -65,6 +66,8 @@ router.post('/progress-curve-bond', async (req, res) => {
     }
 });
 router.get('/graph-data', tradeController.getGraphDataa);
-router.get('/lastest-data', tradeController.getLatestTradeAndCoin);
-router.get('/graph-random-data', tradeController.getRandomGraphData)
+router.get('/lastest-data/:type', tradeController.getLatestTradeAndCoin);
+router.get('/graph-random-data', tradeController.getRandomGraphData);
+router.get('/get-sol-price-in-usd', tradeController.fetchLastestSolPriceInUsd)
+router.get('/get-eth-price-in-usd', tradeController.fetchLastestEthPriceInUsd)
 module.exports = router;

@@ -5,6 +5,7 @@ const CoinCreatedSchema = new Schema({
     coinId: { type: String, ref: 'Coin' },
     creator: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     name: { type: String, required: true },
+    coin_type: { type: String, required: true },
     ticker: { type: String, required: true },
     description: { type: String, required: true },
     image: { type: String, required: true },
@@ -32,7 +33,10 @@ const CoinCreatedSchema = new Schema({
     coin_status: { type: Boolean, default: false },
     time: { type: Date, default: Date.now },
     status: { type: String, enum: ['created', 'deployed', 'failed'] },
+    pool_id: { type: String, default: null },
+    is_shifted: { type: String, enum: ['guess', 'in-process', 'shifted', 'failed'], default: 'guess' },
     is_created: { type: Boolean },
+    dev_buy: { type: Number, default: 0 },
     reviews: [{
         user: String,
         rating: Number,

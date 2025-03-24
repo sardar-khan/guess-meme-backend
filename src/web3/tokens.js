@@ -1,10 +1,11 @@
 const { ethers } = require('ethers');
 const abi = require('./abi.json');
 const tokenAbi = require('./tokenAbi.json');
+const evmTokenAbi = require('./Token/tokenAbi.json');
 const { utils } = require('@project-serum/anchor');
 require('dotenv').config();
 
-const INFURA_URL_TESTNET = process.env.INFURA_URL_TESTNET;
+const INFURA_URL_TESTNET = process.env.INFURA_URL_SEPOLIA;
 const WALLET_ADDRESS = process.env.WALLET_ADDRESS;
 const WALLET_SECRET = process.env.WALLET_SECRET.toString();
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
@@ -13,10 +14,8 @@ const provider = new ethers.JsonRpcProvider(INFURA_URL_TESTNET); // Amoy testnet
 const signer = new ethers.Wallet(WALLET_SECRET, provider);
 const factoryContract = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
 async function getBondingCurve(address) {
-    console.log("call")
     try {
         const result = await factoryContract.bondingCurve(address);
-        console.log('Bonding Curve:', result[2]);
         return result;
     } catch (error) {
         console.error('Error fetching bonding curve:', error);
@@ -25,7 +24,7 @@ async function getBondingCurve(address) {
 async function virtualTokenAmount() {
     try {
         const amount = await factoryContract.virtualTokenAmount();
-        console.log("amount", amount);
+
         return {
             virtualTokenAmount: amount
         }
@@ -39,11 +38,9 @@ async function virtualTokenAmount() {
 // const symbol = "ST"; //symbol
 // const totalSupply = ethers.parseUnits('1000000000', 18) //total supply
 const deployTokenOnBlockchain = async (tokenData) => {
-    console.log("token_data", tokenData);
     try {
         let { name, symbol } = tokenData;
         const totalSupply = ethers.parseUnits('1000000000', 18) //total supply
-        console.log(`Deploying token: ${name} (${symbol}), Total Supply: ${totalSupply}`);
         name = name.toString();
         symbol = symbol.toString();
         const tx = await factoryContract.createToken(
@@ -54,7 +51,6 @@ const deployTokenOnBlockchain = async (tokenData) => {
             100
         );
         const newTx = await tx.wait();
-        console.log('Transaction hash:', newTx.hash, "token_addresss", newTx.logs[0].address);
         return { hash: tx.hash, token_address: newTx.logs[0].address }; // Return the transaction hash
     } catch (error) {
         console.error('Error deploying token on the blockchain:', error);
@@ -64,16 +60,13 @@ const deployTokenOnBlockchain = async (tokenData) => {
 // Function to buy tokens
 async function buyTokensOnBlockchain(tokenAddress, amount) {
     try {
-        console.log("call bydv", tokenAddress, amount)
         const payableAmount = await factoryContract.buyQuote(tokenAddress, amount);
         const fee = await factoryContract.calculateBuyFee(tokenAddress, amount);
         const ethToPay = payableAmount + fee;
-        console.log("Total ETH to pay:", ethers.formatEther(ethToPay));
         const tx = await factoryContract.buyTokens(tokenAddress, amount, {
             value: ethToPay,
         });
         await tx.wait();
-        console.log('Transaction hash:', tx, tx.hash);
         return {
             success: true,
             transactionHash: tx.hash
@@ -89,22 +82,17 @@ async function buyTokensOnBlockchain(tokenAddress, amount) {
 //sell tokens 
 async function sellTokensOnBlockchain(tokenAddress, amount) {
     try {
-        console.log("Approving tokens for sale", tokenAddress, amount);
         const tokenContract = new ethers.Contract(tokenAddress, tokenAbi, signer);
 
-        console.log("Approving tokens for sale");
         const payableAmount = await factoryContract.buyQuote(tokenAddress, amount);
         const fee = await factoryContract.calculateBuyFee(tokenAddress, amount);
         const ethToPay = payableAmount + fee;
         const tokensToSell = ethers.parseUnits(ethToPay.toString(), 18); // Tokens to sell
-        console.log("Approving tokens for afetr sale", tokenAddress, amount);
         const approvalTx = await tokenContract.approve(CONTRACT_ADDRESS, tokensToSell);
         await approvalTx.wait();
-        console.log("Approval transaction hash:", approvalTx.hash);
 
         const tx = await factoryContract.sellTokens(tokenAddress, tokensToSell);
         await tx.wait();
-        console.log('Sell transaction hash:', tx.hash);
 
         return { success: true, transactionHash: tx.hash };
     } catch (error) {
@@ -136,7 +124,6 @@ async function transferEthToAdmin(amountInEth) {
         });
 
         await tx.wait();
-        console.log(`Successfully sent ${amountInEth} ETH to Admin. Transaction Hash: ${tx.hash}`);
         return { success: true, transactionHash: tx.hash };
     } catch (error) {
         console.error('Error sending ETH to admin:', error);
@@ -148,7 +135,6 @@ async function transferMatic() {
     try {
         // Check sender's balance (optional, for verification)
         const senderBalance = await provider.getBalance('0xA22aea5f4736B44241612Dff8f4A22ff25dae65A');
-        console.log('Sender balance:', ethers.formatUnits(senderBalance, 18), 'MATIC');
         const amountToSend = ethers.parseUnits('0.001', 18); // Sending 10 MATIC
 
         // Send MATIC to the recipient
@@ -161,7 +147,6 @@ async function transferMatic() {
 
         // Wait for transaction confirmation
         const receipt = await tx.wait();
-        console.log('Transaction successful! Receipt:', receipt);
     } catch (error) {
         console.error('Error transferring MATIC:', error);
     }
@@ -169,9 +154,8 @@ async function transferMatic() {
 
 async function getPrice(tokenAddress, amount, account_type) {
     try {
+        console.log("tokenAddress, amount, account_type", tokenAddress, amount, account_type)
         const formattedAmount = ethers.parseUnits(amount.toString(), 18);
-        console.log("formattedAmount", formattedAmount.toString())
-        console.log("account_type", account_type)
         let factoryContract;
         if (account_type == 'bsc') {
             const provider = new ethers.JsonRpcProvider(process.env.INFURA_URL_BSC); // Amoy testnet
@@ -179,6 +163,7 @@ async function getPrice(tokenAddress, amount, account_type) {
             factoryContract = new ethers.Contract(process.env.BSC_CA, abi, signer);
         }
         else if (account_type == 'ethereum' || account_type == 'sepolia') {
+            console.log("sepolia")
             const provider = new ethers.JsonRpcProvider(process.env.INFURA_URL_SEPOLIA); // Amoy testnet
             const signer = new ethers.Wallet(WALLET_SECRET, provider);
             factoryContract = new ethers.Contract(process.env.SEPOLIA_CA, abi, signer);
@@ -189,34 +174,176 @@ async function getPrice(tokenAddress, amount, account_type) {
             const signer = new ethers.Wallet(WALLET_SECRET, provider);
             factoryContract = new ethers.Contract(process.env.CONTRACT_ADDRESS, abi, signer);
         }
-        let payableAmount = await factoryContract.buyQuote(tokenAddress, formattedAmount);
+        console.log("tokenAddress, formattedAmount", tokenAddress, formattedAmount.toString())
+        let payableAmount = await factoryContract.buyQuoteWithFee(tokenAddress, formattedAmount.toString());
         const ethToPay = ethers.toBigInt(payableAmount);
-        console.log("Total ETH to pay Onchange:", ethers.formatEther(ethToPay));
-        const tokenAmountBN = BigInt(Math.floor(amount * 1_000_000)); // Assuming 6 decimal tokens
-        const virtualSolReserves = BigInt(2000000000000000000); // SOL reserves in smallest unit
-        const virtualTokenReserves = BigInt(73000000000000000000000000); // Token reserves in smallest unit
-        const k = virtualSolReserves * virtualTokenReserves; // Constant product
+        const tokenInfo = await evmTokenInfo(factoryContract, tokenAddress, WALLET_ADDRESS);
+        console.log("infologged", {
+            tokenPrice: ethers.formatEther(ethToPay),
+            bondingCurveStatus: tokenInfo.isCompleted,
+        })
 
-        // Ensure token amount does not exceed reserves
-        if (tokenAmountBN >= virtualTokenReserves) {
-            throw new Error("Insufficient token reserves for the swap.");
+        return {
+
+            tokenPrice: ethers.formatEther(ethToPay),
+            bondingCurveStatus: tokenInfo.isCompleted,
         }
-
-        // Calculate the amount of SOL received
-        const buySolAgainstTokens = Number(
-            virtualSolReserves - (k / (virtualTokenReserves - tokenAmountBN))
-        );
-
-        console.log("buySolAgainstTokens:", buySolAgainstTokens);
-
-        // payableAmount = parseFloat(ethers.formatUnits(payableAmount, 18));
-        // console.log("payableAmount", payableAmount)
-        return { ethToPay: ethers.formatEther(ethToPay) }
     } catch (error) {
         console.log("errr", error)
         throw error.message
     }
 }
 
+const getTokenBondingCurveInfo = async (tokenAddress, amount, account_type) => {
+    try {
 
-module.exports = { deployTokenOnBlockchain, getPrice, transferMatic, transferEthToAdmin, virtualTokenAmount, buyTokensOnBlockchain, sellTokensOnBlockchain, getBondingCurve };
+        const factoryContract = await getFactoryContract(account_type)
+        const tokenInfo = await evmTokenInfo(factoryContract, tokenAddress, WALLET_ADDRESS);
+        console.log("token_cap_eth1", tokenInfo);
+        return {
+            realTokenReserves: parseFloat(tokenInfo?.realTokenReserves)
+        }
+
+    } catch (error) {
+        console.log("error while getting bonding curve info", error)
+    }
+}
+
+const getFactoryContract = async (account_type) => {
+
+    if (account_type == 'bsc') {
+        const provider = new ethers.JsonRpcProvider(process.env.INFURA_URL_BSC); // Amoy testnet
+        const signer = new ethers.Wallet(WALLET_SECRET, provider);
+        const factoryContract = new ethers.Contract(process.env.BSC_CA, abi, signer);
+        return factoryContract
+    }
+    else if (account_type == 'ethereum' || account_type == 'sepolia') {
+        const provider = new ethers.JsonRpcProvider(process.env.INFURA_URL_SEPOLIA); // Amoy testnet
+        const signer = new ethers.Wallet(WALLET_SECRET, provider);
+        const factoryContract = new ethers.Contract(process.env.SEPOLIA_CA, abi, signer);
+        return factoryContract
+
+    }
+    else if (account_type == 'polygon') {
+        const provider = new ethers.JsonRpcProvider(process.env.INFURA_URL_TESTNET); // Amoy testnet
+        const signer = new ethers.Wallet(WALLET_SECRET, provider);
+        const factoryContract = new ethers.Contract(process.env.CONTRACT_ADDRESS, abi, signer);
+        return factoryContract
+    }
+
+
+}
+
+// export const getTokenContract = async (tokenAddress) => {
+
+
+//     // Initialize provider from MetaMask
+//     const provider = new ethers.providers.JsonRpcProvider("https://sepolia.infura.io/v3/014624cb65e2436b867f49ef0a3c84e3");
+
+//     const factoryContract = new ethers.Contract(tokenAddress, evmTokenAbi, provider);
+//     return factoryContract;
+//   };
+
+const evmTokenInfo = async (factoryContract, tokenAddress, address) => {
+    try {
+
+        const bondingCurveInfo = await factoryContract.bondingCurve(tokenAddress);
+        const tokenInfo = {
+            virtualTokenReserves: String(ethers.formatEther(bondingCurveInfo[0].toString())),
+            virtualEthReserves: String(ethers.formatEther(bondingCurveInfo[1].toString())),
+            realTokenReserves: String(ethers.formatEther(bondingCurveInfo[2].toString())),
+            realEthReserves: String(ethers.formatEther(bondingCurveInfo[3].toString())),
+            totalSupply: String(ethers.formatEther(bondingCurveInfo[4].toString())),
+            maxSupplyPercentage: bondingCurveInfo[5].toString(),
+            isCompleted: bondingCurveInfo[6].toString(),
+        }
+
+        return tokenInfo
+
+    } catch (error) {
+        console.log("error while fetching token info", error)
+    }
+}
+
+const fetchFactoryContractSettings = async () => {
+    try {
+        const provider = new ethers.JsonRpcProvider(process.env.INFURA_URL_SEPOLIA); // Amoy testnet
+        const signer = new ethers.Wallet(WALLET_SECRET, provider);
+        const factoryContract = new ethers.Contract(process.env.SEPOLIA_CA, abi, signer);
+        return factoryContract
+    } catch (error) {
+        console.log("error while fetching factory contract settings", error)
+    }
+}
+
+
+const withdrawEvmFunds = async (tokenAddress) => {
+    try {
+        //get factory contract instance
+        const factoryContract = await fetchFactoryContractSettings()
+
+        //withdraw tokens funds
+        const tx = await factoryContract.withdraw(tokenAddress)
+
+        //wait for transaction to complete
+        const receipt = await tx.wait();
+        if (receipt.status === 1) {
+            console.log("receipt.transactionHash", receipt.transactionHash)
+            return {
+                success: true,
+                transactionHash: receipt.transactionHash
+            }
+        } else {
+            return {
+                success: false,
+                error: "Transaction failed"
+            }
+        }
+
+    } catch (error) {
+        console.log("error while withdrawing evm funds", error)
+        return {
+            success: false,
+            error: "Transaction failed"
+        }
+    }
+}
+async function getBondingCurveStatus(tokenAddress, amount, account_type) {
+    try {
+        console.log("tokenAddress, amount, account_type", tokenAddress, amount, account_type)
+        const formattedAmount = ethers.parseUnits(amount.toString(), 18);
+        let factoryContract;
+        if (account_type == 'bsc') {
+            const provider = new ethers.JsonRpcProvider(process.env.INFURA_URL_BSC); // Amoy testnet
+            const signer = new ethers.Wallet(WALLET_SECRET, provider);
+            factoryContract = new ethers.Contract(process.env.BSC_CA, abi, signer);
+        }
+        else if (account_type == 'ethereum' || account_type == 'sepolia') {
+            console.log("sepolia")
+            const provider = new ethers.JsonRpcProvider(process.env.INFURA_URL_SEPOLIA); // Amoy testnet
+            const signer = new ethers.Wallet(WALLET_SECRET, provider);
+            factoryContract = new ethers.Contract(process.env.SEPOLIA_CA, abi, signer);
+
+        }
+        else if (account_type == 'polygon') {
+            const provider = new ethers.JsonRpcProvider(process.env.INFURA_URL_TESTNET); // Amoy testnet
+            const signer = new ethers.Wallet(WALLET_SECRET, provider);
+            factoryContract = new ethers.Contract(process.env.CONTRACT_ADDRESS, abi, signer);
+        }
+        console.log("tokenAddress, formattedAmount", tokenAddress, formattedAmount.toString())
+        const tokenInfo = await evmTokenInfo(factoryContract, tokenAddress, WALLET_ADDRESS);
+        console.log("infologged", {
+
+            bondingCurveStatus: tokenInfo.isCompleted,
+        })
+
+        return {
+            bondingCurveStatus: tokenInfo.isCompleted,
+        }
+    } catch (error) {
+        console.log("errr", error)
+        throw error.message
+    }
+}
+
+module.exports = { getTokenBondingCurveInfo, deployTokenOnBlockchain, withdrawEvmFunds, evmTokenInfo, getPrice, transferMatic, transferEthToAdmin, virtualTokenAmount, buyTokensOnBlockchain, sellTokensOnBlockchain, getBondingCurve, getBondingCurveStatus };

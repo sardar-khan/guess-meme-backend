@@ -14,7 +14,7 @@ const UserSchema = new Schema({
     },
     profile_photo: {
         type: String,
-        default: 'http://13.60.36.211:5000/uploads/0x76399c8A5027fD58A1D1b07500ccC8a223BEE0c31739357237108defaultguessmeme.png'
+        default: '/uploads/0xD10FA29B5c9bF9158B7AfD907341Ba95707F61271742362707272group 159.png'
     },
     bio: {
         type: String,
@@ -37,6 +37,8 @@ const UserSchema = new Schema({
     token: {
         type: String
     },
+    instagram_link: { type: String, default: '' },
+    x_link: { type: String, default: '' },
     coins_held: [CoinHeldSchema],
     trades: [{ type: Schema.Types.ObjectId, ref: 'Trade' }],
     coins_created: [{
@@ -50,6 +52,22 @@ const UserSchema = new Schema({
     unread_notifications: {
         type: Number,
         default: 0, // Default to 0 unread notifications
+    },
+    hide_followers: {
+        type: Boolean,
+        default: false,
+    },
+    hide_following: {
+        type: Boolean,
+        default: false,
+    },
+    hide_notification: {
+        type: Boolean,
+        default: false
+    },
+    hide_purchase: {
+        type: Boolean,
+        default: false
     },
     followers_count: { type: Number, default: 0 },
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],

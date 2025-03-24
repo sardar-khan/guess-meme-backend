@@ -21,7 +21,6 @@ const storage = multer.diskStorage({
     filename: function (req, file, cb) {
         const wallet_address = req.user.address;
         const extname = file.originalname.toLowerCase();
-        console.log("extname", extname, "wallet_address", wallet_address)
         const filename = `${wallet_address}${Date.now()}${extname}`;
         cb(null, filename);
     },
